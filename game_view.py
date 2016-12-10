@@ -62,6 +62,9 @@ class Objects:
     ENEMY  = 2
     mobile = [PLAYER, ENEMY]
 
+line_colours = { Objects.PLAYER : (0,0,1),
+                 Objects.ENEMY  : (1,0,0) }
+
 class GameView(ui.RootElement):
     step_time = 1000
     def __init__(self):
@@ -118,11 +121,14 @@ class GameView(ui.RootElement):
             t += self.step_time
             state = next_state
 
-        for i in xrange(len(self.future_state)):
-            intensity = 1 - ((self.future_state[i][0] - self.future_state[0][0])/period)
-            for obj_type in Objects.mobile:
+        for obj_type in Objects.mobile:
+            #Hack to not draw the first line segment which is behind us
+            self.future_state[0][1][obj_type].line_seg.SetColour( (0,0,0,0) )
+            for i in xrange(1, len(self.future_state)):
+                intensity = 1 - ((self.future_state[i][0] - self.future_state[0][0])/period)
                 try:
-                    self.future_state[i][1][obj_type].line_seg.SetColour( (1,0,0,intensity) )
+                    col = line_colours[obj_type] + (intensity, )
+                    self.future_state[i][1][obj_type].line_seg.SetColour( col )
                 except KeyError:
                     continue
 
@@ -157,14 +163,15 @@ class GameView(ui.RootElement):
         if self.mode:
             self.mode.Update(t)
 
-        i = 0
+
         for i, (t, state) in enumerate(self.future_state):
             if t > globals.time:
                 break
             for obj_type in Objects.mobile:
                 state[obj_type].line_seg.Delete()
+
         try:
-            current_state = self.future_state[i - 1 if i > 0 else 0][1]
+            current_state = self.future_state[i][1]
             for obj_type in Objects.mobile:
                 body = current_state[obj_type]
                 self.initial_state[obj_type] = body
