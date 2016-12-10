@@ -7,10 +7,13 @@ import modes
 import random
 
 class Body(object):
-    def __init__(self, pos, velocity, mass):
+    def __init__(self, pos, velocity, mass, last_pos = None):
         self.pos = pos
         self.velocity = velocity
         self.mass = mass
+        if last_pos:
+            self.line_seg = drawing.Line(globals.line_buffer)
+            self.line_seg.SetVertices( last_pos, self.pos, 1000 )
 
     def step(self, elapsed, gravity_sources):
         acc = Point(0,0)
@@ -22,7 +25,7 @@ class Body(object):
 
         pos = self.pos + (distance_travelled * globals.units_to_pixels)
 
-        return Body(pos, velocity, self.mass)
+        return Body(pos, velocity, self.mass, self.pos)
 
     def acc_due_to_gravity(self, body):
         vector = (self.pos - body.pos) * globals.pixels_to_units
@@ -87,30 +90,24 @@ class GameView(ui.RootElement):
     def fill_state(self):
         step = 100
         try:
-            current,state,line_seg = self.future_state[-1]
+            current,state = self.future_state[-1]
             ship = state[Objects.SHIP]
         except IndexError:
             current = globals.time
             ship = self.ship_body
         t = current + step
-        last_pos = ship.pos
         period = 200000.0
         while t < globals.time + period:
             ship = ship.step(step * globals.time_factor, self.fixed_bodies)
             state = { Objects.SHIP : ship,
                       Objects.SUN  : self.sun_body }
-            line_seg = drawing.Line(globals.line_buffer)
-            line_seg.SetVertices( last_pos, ship.pos, 1000 )
 
-
-            last_pos = ship.pos
-            self.future_state.append( (t, state, line_seg) )
+            self.future_state.append( (t, state) )
             t += step
 
-        self.future_state[0][2].SetColour( (1,0,0,1) )
-        for i in xrange(1, len(self.future_state)):
+        for i in xrange(len(self.future_state)):
             intensity = 1 - ((self.future_state[i][0] - self.future_state[0][0])/period)
-            self.future_state[i][2].SetColour( (1,0,0,intensity) )
+            self.future_state[i][1][Objects.SHIP].line_seg.SetColour( (1,0,0,intensity) )
 
 
     def StartMusic(self):
@@ -137,12 +134,10 @@ class GameView(ui.RootElement):
             self.mode.Update(t)
 
         i = 0
-        for i, (t, state, line_seg) in enumerate(self.future_state):
+        for i, (t, state) in enumerate(self.future_state):
             if t > globals.time:
                 break
-            line_seg.Delete()
-
-
+            state[Objects.SHIP].line_seg.Delete()
         try:
             current_state = self.future_state[i - 1 if i > 0 else 0][1]
             self.ship_body = current_state[Objects.SHIP]
@@ -156,16 +151,14 @@ class GameView(ui.RootElement):
         if self.game_over:
             return
 
-
-
     def GameOver(self):
         self.game_over = True
         self.mode = modes.GameOver(self)
 
     def KeyDown(self,key):
         #rejig stuff
-        for t, state, line_seg in self.future_state:
-            line_seg.Delete()
+        for t, state in self.future_state:
+            state[Objects.SHIP].line_seg.Delete()
         self.future_state = []
         self.ship_body.velocity += Point(100,0)
         self.mode.KeyDown(key)
