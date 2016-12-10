@@ -74,7 +74,9 @@ line_colours = { Objects.PLAYER : (0,0,1),
                  Objects.ENEMY  : (1,0,0) }
 
 class GameView(ui.RootElement):
-    step_time = 1000
+    step_time = 500
+    trail_age = 60000.0
+    trail_fade = 8000.0
     def __init__(self):
         self.atlas = globals.atlas = drawing.texture.TextureAtlas('tiles_atlas_0.png','tiles_atlas.txt')
         self.game_over = False
@@ -122,7 +124,7 @@ class GameView(ui.RootElement):
             current = globals.time
             state = self.initial_state
         t = current + self.step_time
-        period = 8000.0
+        period = 20000.0
 
         while t < globals.time + period:
             next_state = { Objects.SUN  : self.sun_body }
@@ -141,7 +143,7 @@ class GameView(ui.RootElement):
             #Hack to not draw the first line segment which is behind us
             #self.future_state[0][1][obj_type].line_seg.SetColour( (0,0,0,0) )
             for i in xrange(0, len(self.future_state)):
-                intensity = 1 - ((self.future_state[i][0] - self.future_state[0][0])/period)
+                intensity = 1^(i&1)# - ((self.future_state[i][0] - self.future_state[0][0])/period)
                 try:
                     col = line_colours[obj_type] + (intensity, )
                     self.future_state[i][1][obj_type].line_seg.SetColour( col )
@@ -164,7 +166,7 @@ class GameView(ui.RootElement):
     def Draw(self):
         drawing.ResetState()
         #drawing.Translate(-400,-400,0)
-        s = 1.0
+        s = 2.0
         drawing.Scale(s,s,1)
         drawing.Translate(-self.viewpos.x/s,-self.viewpos.y/s,0)
 
@@ -245,7 +247,7 @@ class GameView(ui.RootElement):
                 self.initial_state[obj_type] = n
 
 
-        if self.future_state[0][0] < globals.time:
+        if self.future_state[3][0] < globals.time:
             #Kill the line segments that are in the future
             for t,state in self.future_state:
                 for obj_type in Objects.mobile:
@@ -253,6 +255,9 @@ class GameView(ui.RootElement):
                         state[obj_type].line_seg.Delete()
                     else:
                         #For the others store them for later deletion
+                        intensity = 1
+                        col = line_colours[obj_type] + (intensity, )
+                        state[obj_type].line_seg.SetColour( col )
                         self.saved_segs[obj_type].append( (t, state[obj_type].line_seg ) )
 
             self.future_state = []
@@ -260,16 +265,17 @@ class GameView(ui.RootElement):
             #Now there's been an update, let's see if we can get a firing solution on the player :)
             self.scan_for_player()
 
+
         for obj_type in Objects.mobile:
             new_saved = []
             for (t,line_seg) in self.saved_segs[obj_type]:
                 age = globals.time - t
-                if age < 10000:
+                if age < self.trail_age:
                     new_saved.append( (t,line_seg) )
-                elif age > 10000 + 8000:
+                elif age > self.trail_age + self.trail_fade:
                     line_seg.Delete()
                 else:
-                    intensity = 1 - ((age - 10000) / 8000.0)
+                    intensity = 1 - ((age - self.trail_age) / self.trail_fade)
                     col = line_colours[obj_type] + (intensity, )
                     line_seg.SetColour( col )
                     new_saved.append( (t,line_seg) )
