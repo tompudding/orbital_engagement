@@ -111,6 +111,8 @@ class GameView(ui.RootElement):
         self.last = None
 
         self.mode = modes.Combat(self)
+        self.saved_segs = { Objects.PLAYER : [],
+                            Objects.ENEMY : [] }
         self.StartMusic()
 
     def fill_state(self):
@@ -244,13 +246,34 @@ class GameView(ui.RootElement):
 
 
         if self.future_state[0][0] < globals.time:
+            #Kill the line segments that are in the future
             for t,state in self.future_state:
                 for obj_type in Objects.mobile:
-                    state[obj_type].line_seg.Delete()
+                    if t > globals.time:
+                        state[obj_type].line_seg.Delete()
+                    else:
+                        #For the others store them for later deletion
+                        self.saved_segs[obj_type].append( (t, state[obj_type].line_seg ) )
+
             self.future_state = []
             self.fill_state()
             #Now there's been an update, let's see if we can get a firing solution on the player :)
             self.scan_for_player()
+
+        for obj_type in Objects.mobile:
+            new_saved = []
+            for (t,line_seg) in self.saved_segs[obj_type]:
+                age = globals.time - t
+                if age < 10000:
+                    new_saved.append( (t,line_seg) )
+                elif age > 10000 + 8000:
+                    line_seg.Delete()
+                else:
+                    intensity = 1 - ((age - 10000) / 8000.0)
+                    col = line_colours[obj_type] + (intensity, )
+                    line_seg.SetColour( col )
+                    new_saved.append( (t,line_seg) )
+            self.saved_segs[obj_type] = new_saved
 
         if self.game_over:
             return
