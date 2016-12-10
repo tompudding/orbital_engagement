@@ -60,7 +60,7 @@ drawing.InitDrawing()
 while not done:
     globals.time = t = pygame.time.get_ticks()
     clock.tick(60)
-    globals.time = pygame.time.get_ticks()
+
     if t - last > 1000:
         #print 'FPS:',clock.get_fps()
         last = t

@@ -5,6 +5,9 @@ import ui,globals,drawing,os,copy
 from globals.types import Point
 import modes
 import random
+import cmath
+
+G = 1
 
 class Body(object):
     def __init__(self, pos, velocity, mass, last_pos = None):
@@ -13,9 +16,9 @@ class Body(object):
         self.mass = mass
         if last_pos:
             self.line_seg = drawing.Line(globals.line_buffer)
-            self.line_seg.SetVertices( last_pos, self.pos, 1000 )
+            self.line_seg.SetVertices( last_pos , self.pos, 1000 )
 
-    def step(self, elapsed, gravity_sources):
+    def step(self, elapsed, gravity_sources, line=True):
         acc = Point(0,0)
         for body in gravity_sources:
             acc += body.acc_due_to_gravity(self)
@@ -25,11 +28,16 @@ class Body(object):
 
         pos = self.pos + (distance_travelled * globals.units_to_pixels)
 
-        return Body(pos, velocity, self.mass, self.pos)
+        return Body(pos, velocity, self.mass, self.pos if line else None)
 
     def acc_due_to_gravity(self, body):
         vector = (self.pos - body.pos) * globals.pixels_to_units
-        return (vector / vector.SquareLength()) * self.mass
+        return (vector / vector.SquareLength()) * self.mass * G
+
+    def apply_force_towards(self, target, force):
+        vector = ((target.pos - self.pos).unit_vector())
+        acc = ((vector * force)/ self.mass)
+        self.velocity += acc
 
 
 class FixedBody(Body):
@@ -81,8 +89,12 @@ class GameView(ui.RootElement):
         self.enemy = Ship()
         self.sun_body  = FixedBody( pos=Point(0,0), velocity=Point(0,0), mass=100000000 )
         self.sun.set_vertices(self.sun_body.pos)
-        self.ship_body = Body( Point(100, 100), (Point(1,-1).unit_vector()) * 10000, mass=1 )
-        self.enemy_body = Body( Point(-100, -100), (Point(-1,1).unit_vector()) * 11000, mass=1 )
+        orbit_velocity = (math.sqrt(G * self.sun_body.mass / (100)))
+        print orbit_velocity
+        orbit_velocity = orbit_velocity*280
+        orbit_velocity = 10000
+        self.ship_body = Body( Point(100, 0), (Point(0,-1).unit_vector()) * orbit_velocity, mass=1 )
+        self.enemy_body = Body( Point(-100, -100), (Point(-1,1).unit_vector()) * 12000, mass=1 )
         self.fixed_bodies = [self.sun_body]
         self.initial_state = { Objects.PLAYER : self.ship_body,
                                Objects.ENEMY  : self.enemy_body,
@@ -95,6 +107,8 @@ class GameView(ui.RootElement):
         #skip titles for development of the main game
         #self.mode = modes.Titles(self)
         self.viewpos = Point(-640,-360)
+        self.temp_bodies = []
+        self.last = None
 
         self.mode = modes.Combat(self)
         self.StartMusic()
@@ -106,7 +120,7 @@ class GameView(ui.RootElement):
             current = globals.time
             state = self.initial_state
         t = current + self.step_time
-        period = 200000.0
+        period = 8000.0
 
         while t < globals.time + period:
             next_state = { Objects.SUN  : self.sun_body }
@@ -123,8 +137,8 @@ class GameView(ui.RootElement):
 
         for obj_type in Objects.mobile:
             #Hack to not draw the first line segment which is behind us
-            self.future_state[0][1][obj_type].line_seg.SetColour( (0,0,0,0) )
-            for i in xrange(1, len(self.future_state)):
+            #self.future_state[0][1][obj_type].line_seg.SetColour( (0,0,0,0) )
+            for i in xrange(0, len(self.future_state)):
                 intensity = 1 - ((self.future_state[i][0] - self.future_state[0][0])/period)
                 try:
                     col = line_colours[obj_type] + (intensity, )
@@ -159,29 +173,84 @@ class GameView(ui.RootElement):
 
         #drawing.DrawAll(globals.nonstatic_text_buffer,globals.text_manager.atlas.texture)
 
+    def scan_for_player(self):
+        #Throw out a bunch of rays and see if any of them collide with the player's current ray
+        diff = self.initial_state[Objects.PLAYER].pos - self.initial_state[Objects.ENEMY].pos
+        distance, angle_to_player = cmath.polar(diff[0] + diff[1]*1j)
+        gap = math.pi/32
+        angle_guesses = [angle_to_player + i*gap for i in xrange(-16,16)]
+        #for b in self.temp_bodies:
+        #    b.line_seg.Delete()
+        self.temp_bodies = []
+        period = 40000.0
+        best_time = period
+        explosion_distance = 100
+        for angle in angle_guesses:
+            body = self.initial_state[Objects.ENEMY]
+            v = cmath.rect(20000, angle)
+            velocity = Point(v.real, v.imag)
+            body = Body(body.pos, body.velocity + velocity, body.mass)
+            step = 1000
+            t = globals.time
+
+
+            while t < globals.time + period:
+                target = self.get_obj_at_time(Objects.PLAYER, t)
+                if target:
+                    distance = (target.pos - body.pos).length()
+                    if distance < explosion_distance and (t - globals.time) < best_time:
+                        best_time = t - globals.time
+                        print angle,best_time,distance
+                    #body.apply_force_towards( target, 1000 )
+                body = body.step(step * globals.time_factor, self.fixed_bodies, line = False)
+                self.temp_bodies.append(body)
+                t += step
+        #for body in self.temp_bodies:
+        #    body.line_seg.SetColour( (1,1,1,1) )
+
+    def get_obj_at_time(self, obj_type, target):
+        #Get the first one before it
+        closest_before = None
+        closest_after = None
+        for i, (t, state) in enumerate(self.future_state):
+            if t < target:
+                closest_before = state[obj_type]
+            if t > globals.time:
+                closest_after = state[obj_type]
+                break
+
+        if closest_before is None:
+            guess = closest_after
+        elif closest_after is None:
+            guess = closest_before
+        else:
+            #could interpolate, for now just pick one
+            guess = closest_before
+        return guess
+
     def Update(self,t):
         if self.mode:
             self.mode.Update(t)
 
-
-        for i, (t, state) in enumerate(self.future_state):
-            if t > globals.time:
-                break
+        if self.last is None:
+            self.last = globals.time
+        else:
+            elapsed = globals.time - self.last
+            self.last = globals.time
             for obj_type in Objects.mobile:
-                state[obj_type].line_seg.Delete()
+                n = self.initial_state[obj_type].step(elapsed * globals.time_factor, self.fixed_bodies, line = False)
+                self.object_quads[obj_type].set_vertices( n.pos )
+                self.initial_state[obj_type] = n
 
-        try:
-            current_state = self.future_state[i][1]
-            for obj_type in Objects.mobile:
-                body = current_state[obj_type]
-                self.initial_state[obj_type] = body
-                self.object_quads[obj_type].set_vertices( body.pos )
-        except IndexError:
-            pass
 
-        self.future_state = self.future_state[i:]
-
-        self.fill_state()
+        if self.future_state[0][0] < globals.time:
+            for t,state in self.future_state:
+                for obj_type in Objects.mobile:
+                    state[obj_type].line_seg.Delete()
+            self.future_state = []
+            self.fill_state()
+            #Now there's been an update, let's see if we can get a firing solution on the player :)
+            self.scan_for_player()
 
         if self.game_over:
             return
@@ -192,12 +261,14 @@ class GameView(ui.RootElement):
 
     def KeyDown(self,key):
         #rejig stuff
+
         for t, state in self.future_state:
             state[Objects.PLAYER].line_seg.Delete()
         for t, state in self.future_state:
             del state[Objects.PLAYER]
 
-        self.initial_state[Objects.PLAYER].velocity += Point(100,0)
+        d = 50 if key == 45 else -50
+        self.initial_state[Objects.PLAYER].velocity += Point(0,d)
         self.fill_state_obj(Objects.PLAYER)
         self.mode.KeyDown(key)
 
