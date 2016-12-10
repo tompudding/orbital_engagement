@@ -58,9 +58,12 @@ class Ship(BodyImage):
 
 class Objects:
     SUN  = 0
-    SHIP = 1
+    PLAYER = 1
+    ENEMY  = 2
+    mobile = [PLAYER, ENEMY]
 
 class GameView(ui.RootElement):
+    step_time = 1000
     def __init__(self):
         self.atlas = globals.atlas = drawing.texture.TextureAtlas('tiles_atlas_0.png','tiles_atlas.txt')
         self.game_over = False
@@ -72,11 +75,17 @@ class GameView(ui.RootElement):
         #self.square.SetColour( (1,0,0,1) )
         self.sun = Sun()
         self.ship = Ship()
+        self.enemy = Ship()
         self.sun_body  = FixedBody( pos=Point(0,0), velocity=Point(0,0), mass=100000000 )
         self.sun.set_vertices(self.sun_body.pos)
         self.ship_body = Body( Point(100, 100), (Point(1,-1).unit_vector()) * 10000, mass=1 )
+        self.enemy_body = Body( Point(-100, -100), (Point(-1,1).unit_vector()) * 11000, mass=1 )
         self.fixed_bodies = [self.sun_body]
-
+        self.initial_state = { Objects.PLAYER : self.ship_body,
+                               Objects.ENEMY  : self.enemy_body,
+                               Objects.SUN    : self.sun_body }
+        self.object_quads = { Objects.PLAYER : self.ship,
+                              Objects.ENEMY : self.enemy }
         #set up the state
         self.future_state = []
         self.fill_state()
@@ -88,27 +97,42 @@ class GameView(ui.RootElement):
         self.StartMusic()
 
     def fill_state(self):
-        step = 100
         try:
             current,state = self.future_state[-1]
-            ship = state[Objects.SHIP]
         except IndexError:
             current = globals.time
-            ship = self.ship_body
-        t = current + step
+            state = self.initial_state
+        t = current + self.step_time
         period = 200000.0
-        while t < globals.time + period:
-            ship = ship.step(step * globals.time_factor, self.fixed_bodies)
-            state = { Objects.SHIP : ship,
-                      Objects.SUN  : self.sun_body }
 
-            self.future_state.append( (t, state) )
-            t += step
+        while t < globals.time + period:
+            next_state = { Objects.SUN  : self.sun_body }
+            for obj_type in Objects.mobile:
+                try:
+                    obj = state[obj_type].step(self.step_time * globals.time_factor, self.fixed_bodies)
+                except KeyError:
+                    continue
+                next_state[obj_type] = obj
+
+            self.future_state.append( (t, next_state) )
+            t += self.step_time
+            state = next_state
 
         for i in xrange(len(self.future_state)):
             intensity = 1 - ((self.future_state[i][0] - self.future_state[0][0])/period)
-            self.future_state[i][1][Objects.SHIP].line_seg.SetColour( (1,0,0,intensity) )
+            for obj_type in Objects.mobile:
+                try:
+                    self.future_state[i][1][obj_type].line_seg.SetColour( (1,0,0,intensity) )
+                except KeyError:
+                    continue
 
+    def fill_state_obj(self, obj_type):
+        last = self.initial_state[obj_type]
+        for t, state in self.future_state:
+            if obj_type not in state:
+                n = last.step(self.step_time * globals.time_factor, self.fixed_bodies)
+                state[obj_type] = n
+            last = state[obj_type]
 
     def StartMusic(self):
         pass
@@ -137,13 +161,17 @@ class GameView(ui.RootElement):
         for i, (t, state) in enumerate(self.future_state):
             if t > globals.time:
                 break
-            state[Objects.SHIP].line_seg.Delete()
+            for obj_type in Objects.mobile:
+                state[obj_type].line_seg.Delete()
         try:
             current_state = self.future_state[i - 1 if i > 0 else 0][1]
-            self.ship_body = current_state[Objects.SHIP]
+            for obj_type in Objects.mobile:
+                body = current_state[obj_type]
+                self.initial_state[obj_type] = body
+                self.object_quads[obj_type].set_vertices( body.pos )
         except IndexError:
             pass
-        self.ship.set_vertices( self.ship_body.pos )
+
         self.future_state = self.future_state[i:]
 
         self.fill_state()
@@ -158,9 +186,12 @@ class GameView(ui.RootElement):
     def KeyDown(self,key):
         #rejig stuff
         for t, state in self.future_state:
-            state[Objects.SHIP].line_seg.Delete()
-        self.future_state = []
-        self.ship_body.velocity += Point(100,0)
+            state[Objects.PLAYER].line_seg.Delete()
+        for t, state in self.future_state:
+            del state[Objects.PLAYER]
+
+        self.initial_state[Objects.PLAYER].velocity += Point(100,0)
+        self.fill_state_obj(Objects.PLAYER)
         self.mode.KeyDown(key)
 
     def KeyUp(self,key):
