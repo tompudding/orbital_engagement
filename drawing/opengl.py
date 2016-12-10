@@ -1,0 +1,457 @@
+import drawing
+import os
+
+from OpenGL.arrays import numpymodule
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GL import shaders
+from OpenGL.GL.framebufferobjects import *
+from globals.types import Point
+import globals
+import time
+import constants
+import itertools
+
+numpymodule.NumpyHandler.ERROR_ON_COPY = True
+
+class ShaderLocations(object):
+    def __init__(self):
+        self.tex               = None
+        self.vertex_data       = None
+        self.tc_data           = None
+        self.colour_data       = None
+        self.using_textures    = None
+        self.screen_dimensions = None
+        self.translation       = None
+        self.scale             = None
+
+class ShaderData(object):
+    def __init__(self):
+        self.program   = None
+        self.locations = ShaderLocations()
+        self.dimensions = (0, 0, 0)
+
+    def Use(self):
+        shaders.glUseProgram(self.program)
+        glUniform2f(self.locations.translation, 0, 0)
+        glUniform2f(self.locations.scale, 1, 1)
+        #state.SetShader(self)
+        #state.Update()
+
+    def Load(self,name,uniforms,attributes):
+        vertex_name,fragment_name = (os.path.join('drawing','shaders','%s_%s.glsl' % (name,typeof)) for typeof in ('vertex','fragment'))
+        codes = []
+        for name in vertex_name,fragment_name:
+            with open(name,'rb') as f:
+                data = f.read()
+            codes.append(data)
+        VERTEX_SHADER   = shaders.compileShader(codes[0]  , GL_VERTEX_SHADER)
+        FRAGMENT_SHADER = shaders.compileShader(codes[1]  , GL_FRAGMENT_SHADER)
+        self.program = glCreateProgram()
+        shads = (VERTEX_SHADER, FRAGMENT_SHADER)
+        for shader in shads:
+            glAttachShader(self.program, shader)
+        self.fragment_shader_attrib_binding()
+        self.program = shaders.ShaderProgram( self.program )
+        glLinkProgram(self.program)
+        self.program.check_validate()
+        self.program.check_linked()
+        for shader in shads:
+            glDeleteShader(shader)
+        #self.program    = shaders.compileProgram(VERTEX_SHADER,FRAGMENT_SHADER)
+        for (namelist,func) in ((uniforms,glGetUniformLocation),(attributes,glGetAttribLocation)):
+            for name in namelist:
+                setattr(self.locations,name,func(self.program,name))
+
+    def fragment_shader_attrib_binding(self):
+        pass
+
+z_max            = 10000
+light_shader     = ShaderData()
+
+default_shader   = ShaderData()
+shadow_shader    = ShaderData()
+#state            = State(geom_shader)
+
+gbuffer          = None
+shadow_buffer    = None
+
+def Init(w,h):
+    global gbuffer,shadow_buffer
+    """
+    One time initialisation of the screen
+    """
+    # light_shader.Load('light',
+    #                   uniforms = ('tex',
+    #                               'screen_dimensions',
+    #                               'translation',
+    #                               'scale',
+    #                               'displacement_map',
+    #                               'colour_map',
+    #                               'normal_map',
+    #                               'occlude_map',
+    #                               'shadow_map',
+    #                               'light_type',
+    #                               'light_pos',
+    #                               'ambient_colour',
+    #                               'ambient_attenuation',
+    #                               'directional_light_dir',
+    #                               'cone_dir',
+    #                               'shadow_index',
+    #                               'cone_width',
+    #                               'light_colour',
+    #                               'light_radius',
+    #                               'light_intensity'),
+    #                   attributes = ('vertex_data',))
+
+    # geom_shader.Load('geometry',
+    #                  uniforms = ('screen_dimensions',
+    #                              'using_textures',
+    #                              'translation',
+    #                              'scale',
+    #                              'tex',
+    #                              'normal_tex',
+    #                              'occlude_tex',
+    #                              'displace_tex'),
+    #                  attributes = ('vertex_data',
+    #                                'tc_data',
+    #                                'normal_data',
+    #                                'occlude_data',
+    #                                'displace_data',
+    #                                'colour_data'))
+
+    default_shader.Load('default',
+                        uniforms = ('tex','translation','scale',
+                                    'screen_dimensions',
+                                    'using_textures'),
+                        attributes = ('vertex_data',
+                                      'tc_data',
+                                      'colour_data'))
+
+    # shadow_shader.Load('shadow',
+    #                    uniforms = ('colour_map',
+    #                                'displacement_map',
+    #                                'normal_map',
+    #                                'occlude_map',
+    #                                'sb_dimensions',
+    #                                'screen_dimensions',
+    #                                'light_dimensions',
+    #                                'light_pos'),
+    #                    attributes = ('vertex_data',))
+
+    #gbuffer = GeometryBuffer(w,h)
+    #shadow_buffer = ShadowMapBuffer()
+
+
+    glClearColor(0.0, 0.0, 0.0, 1.0)
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
+
+    #SetRenderDimensions(w,h,z_max)
+
+    glEnable(GL_TEXTURE_2D)
+    glEnable(GL_BLEND)
+    glEnable(GL_DEPTH_TEST);
+    #glAlphaFunc(GL_GREATER, 0.25);
+    glEnable(GL_ALPHA_TEST);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+def ResetState():
+    state.Reset()
+
+def Translate(x,y,z):
+    state.pos += Point(x,y)
+    state.Update()
+
+def Scale(x,y,z):
+    state.scale = Point(x,y)
+    state.Update()
+
+def NewFrame():
+    default_shader.Use()
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    # ui_buffers.Reset()
+    # geom_shader.Use()
+    # gbuffer.BindForWriting()
+    # glDepthMask(GL_TRUE)
+    # glClearColor(0.0, 0.0, 0.0, 1.0)
+    # glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    # glEnable(GL_DEPTH_TEST)
+    # glEnable(GL_BLEND)
+    # glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+def EndFrame():
+    return
+    glDepthMask(GL_FALSE)
+    glDisable(GL_DEPTH_TEST)
+    gbuffer.Unbind()
+    if globals.game_view:
+        EndFrameGameMode()
+
+    default_shader.Use()
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    #ui_buffers.Draw()
+
+def EndFrameGameMode():
+    #Now we're going to try a light pass...
+
+    gbuffer.BindForReading()
+    shadow_buffer.BindForWriting()
+    glClearColor(0.0, 0.0, 1.0, 1.0)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    #Create the shadow maps...
+    shadow_shader.Use()
+
+    #do the mouse light
+    glUniform2f(shadow_shader.locations.light_pos, *(globals.mouse_screen))
+    quad_buffer = globals.shadow_quadbuffer
+    glEnableVertexAttribArray( shadow_shader.locations.vertex_data );
+    glVertexAttribPointer( shadow_shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, quad_buffer.vertex_data )
+    #glDrawElements(GL_QUADS,4,GL_UNSIGNED_INT,quad_buffer.indices)
+
+    #Now do the other lights with shadows
+    for light in itertools.chain(globals.lights,globals.cone_lights):
+        glUniform2f(shadow_shader.locations.light_pos, *light.screen_pos[:2])
+        #glVertexAttribPointer( shadow_shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, quad_buffer.vertex_data )
+        glDrawElements(GL_QUADS,4,GL_UNSIGNED_INT,quad_buffer.indices[light.shadow_index*4:])
+
+    #return
+
+    shadow_buffer.BindForReading(gbuffer.NUM_TEXTURES)
+    glBlendEquation(GL_FUNC_ADD)
+    glBlendFunc(GL_ONE,GL_ONE)
+    glClearColor(0.0, 0.0, 0.0, 1.0)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    light_shader.Use()
+    glUniform1f(light_shader.locations.light_radius, 400)
+    glUniform1f(light_shader.locations.light_intensity, 1)
+
+    #quad_buffer = globals.temp_mouse_light
+
+    #Hack, do the mouse light separate for now so we can set it's position. Should be done elsewhere really and be in
+    #the lights list
+    # glUniform1i(light_shader.locations.light_type, 2)
+    # glUniform1i(light_shader.locations.shadow_index, 0)
+    # glUniform3f(light_shader.locations.light_pos, globals.mouse_screen.x, globals.mouse_screen.y,20)
+    # glUniform3f(light_shader.locations.light_colour, 1,1,1)
+    # glUniform1f(light_shader.locations.cone_dir, 0)
+    # glUniform1f(light_shader.locations.cone_width, 70)
+    # glVertexAttribPointer( light_shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, quad_buffer.vertex_data )
+    # globals.mouse_light_quad.SetVertices(globals.mouse_screen - Point(400,400),
+    #                                      globals.mouse_screen + Point(400,400),0.1)
+    # glDrawElements(GL_QUADS,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
+
+
+    #Need to draw some lights...
+    timeofday = globals.game_view.timeofday
+    quad_buffer = globals.light_quads
+    sunlight_dir,sunlight_colour,ambient_colour,ambient_attenuation = timeofday.Daylight()
+    #ambient_colour = timeofday.Ambient()
+    glUniform1i(light_shader.locations.light_type, 1)
+    glUniform3f(light_shader.locations.directional_light_dir, *sunlight_dir)
+    glUniform3f(light_shader.locations.light_colour, *sunlight_colour)
+    glUniform3f(light_shader.locations.ambient_colour, *ambient_colour)
+    glUniform1f(light_shader.locations.ambient_attenuation, ambient_attenuation)
+    glEnableVertexAttribArray( light_shader.locations.vertex_data );
+    glVertexAttribPointer( light_shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, quad_buffer.vertex_data )
+
+    #This is the ambient light box around the whole screen for sunlight
+    glDrawElements(GL_QUADS,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
+
+    #Now get the nighttime illumination
+    #dev hack so I can see what's going on
+    # nightlight_dir,nightlight_colour = timeofday.Nightlight()
+    # quad_buffer = globals.nightlight_quads
+    # glUniform1i(light_shader.locations.light_type, 1)
+    # glUniform3f(light_shader.locations.directional_light_dir, *nightlight_dir)
+    # glUniform3f(light_shader.locations.light_colour, *nightlight_colour)
+    # glEnableVertexAttribArray( light_shader.locations.vertex_data );
+    # glVertexAttribPointer( light_shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, quad_buffer.vertex_data )
+    # glDrawElements(GL_QUADS,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
+
+    Scale(globals.scale.x,globals.scale.y,1)
+    Translate(-globals.game_view.viewpos.pos.x,-globals.game_view.viewpos.pos.y,0)
+    glUniform1i(light_shader.locations.light_type, 2)
+    for light in globals.lights:
+        if not light.on:
+            continue
+        glUniform1i(light_shader.locations.shadow_index, light.shadow_index)
+        glUniform3f(light_shader.locations.light_pos, *light.screen_pos)
+        glUniform3f(light_shader.locations.light_colour, *light.colour)
+        glUniform1f(light_shader.locations.light_radius, light.radius)
+        glUniform1f(light_shader.locations.cone_dir, 0)
+        glUniform1f(light_shader.locations.cone_width, 7)
+        glVertexAttribPointer( light_shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, light.quad_buffer.vertex_data )
+        glDrawElements(GL_QUADS,light.quad_buffer.current_size,GL_UNSIGNED_INT,light.quad_buffer.indices)
+
+    glUniform1f(light_shader.locations.light_radius, 400)
+    glUniform1f(light_shader.locations.light_intensity, 1)
+
+    for light in globals.cone_lights:
+        if not light.on:
+            continue
+        glUniform1i(light_shader.locations.shadow_index, light.shadow_index)
+        glUniform3f(light_shader.locations.light_pos, *light.screen_pos)
+        glUniform3f(light_shader.locations.light_colour, *light.colour)
+        glUniform1f(light_shader.locations.cone_dir, light.angle)
+        glUniform1f(light_shader.locations.cone_width, light.angle_width)
+
+        glVertexAttribPointer( light_shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, light.quad_buffer.vertex_data )
+        glDrawElements(GL_QUADS,light.quad_buffer.current_size,GL_UNSIGNED_INT,light.quad_buffer.indices)
+
+    glUniform1i(light_shader.locations.light_type, 3)
+    for light in globals.non_shadow_lights:
+        if not light.on:
+            continue
+        glUniform3f(light_shader.locations.light_pos, *light.pos)
+        glUniform3f(light_shader.locations.light_colour, *light.colour)
+        glUniform1f(light_shader.locations.light_radius, light.radius)
+        glUniform1f(light_shader.locations.light_intensity, light.intensity)
+        glVertexAttribPointer( light_shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, light.quad_buffer.vertex_data )
+        glDrawElements(GL_QUADS,light.quad_buffer.current_size,GL_UNSIGNED_INT,light.quad_buffer.indices)
+
+    glUniform1i(light_shader.locations.light_type, 1)
+    for light in globals.uniform_lights:
+        glUniform3f(light_shader.locations.light_pos, *light.pos)
+        glUniform3f(light_shader.locations.light_colour, *light.colour)
+        glVertexAttribPointer( light_shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, light.quad_buffer.vertex_data )
+        glDrawElements(GL_QUADS,light.quad_buffer.current_size,GL_UNSIGNED_INT,light.quad_buffer.indices)
+
+
+    glDisableVertexAttribArray( light_shader.locations.vertex_data );
+    ResetState()
+
+# def SetRenderDimensions(x,y,z):
+#     geom_shader.dimensions = (x,y,z)
+
+# def GetRenderDimensions():
+#     return geom_shader.dimensions
+
+def InitDrawing():
+    """
+    Should only need to be called once at the start (but after Init)
+    to enable the full client state. We turn off and on again where necessary, but
+    generally try to keep them all on
+    """
+    # shadow_shader.Use()
+    # glUniform1i(shadow_shader.locations.displacement_map, gbuffer.TEXTURE_TYPE_DISPLACEMENT)
+    # glUniform1i(shadow_shader.locations.colour_map  , gbuffer.TEXTURE_TYPE_DIFFUSE)
+    # glUniform1i(shadow_shader.locations.normal_map  , gbuffer.TEXTURE_TYPE_NORMAL)
+    # glUniform1i(shadow_shader.locations.occlude_map  , gbuffer.TEXTURE_TYPE_OCCLUDE)
+    # glUniform3f(shadow_shader.locations.screen_dimensions, globals.screen_abs.x, globals.screen_abs.y, z_max)
+    # glUniform3f(shadow_shader.locations.sb_dimensions, globals.screen_abs.x, globals.screen_abs.y, 1)
+    # glUniform2f(shadow_shader.locations.light_dimensions, 256, 256)
+    # light_shader.Use()
+    # glUniform1i(light_shader.locations.displacement_map, gbuffer.TEXTURE_TYPE_DISPLACEMENT)
+    # glUniform1i(light_shader.locations.colour_map  , gbuffer.TEXTURE_TYPE_DIFFUSE)
+    # glUniform1i(light_shader.locations.normal_map  , gbuffer.TEXTURE_TYPE_NORMAL)
+    # glUniform1i(light_shader.locations.occlude_map  , gbuffer.TEXTURE_TYPE_OCCLUDE)
+    # glUniform1i(light_shader.locations.shadow_map  , gbuffer.TEXTURE_TYPE_SHADOW)
+    # glUniform1f(light_shader.locations.light_radius, 400)
+    # glUniform1f(light_shader.locations.light_intensity, 1)
+    # glUniform3f(light_shader.locations.screen_dimensions, globals.screen_abs.x, globals.screen_abs.y, z_max)
+    # #glUniform1f(light_shader.locations.ambient_level, 0.3)
+    default_shader.Use()
+    glUniform3f(default_shader.locations.screen_dimensions, globals.screen_abs.x, globals.screen_abs.y, z_max)
+    glUniform1i(default_shader.locations.tex, 0)
+    # geom_shader.Use()
+    # glUniform1i(geom_shader.locations.tex, 0)
+    # glUniform1i(geom_shader.locations.normal_tex, 1)
+    # glUniform1i(geom_shader.locations.occlude_tex, 2)
+    # glUniform1i(geom_shader.locations.displace_tex, 3)
+    # glUniform3f(geom_shader.locations.screen_dimensions, globals.screen_abs.x, globals.screen_abs.y, z_max)
+
+
+def DrawAll(quad_buffer,texture):
+    """
+    Draw a quadbuffer with with a vertex array, texture coordinate array, and a colour
+    array
+    """
+    if quad_buffer.is_ui:
+        DrawAllNow(quad_buffer, texture, default_shader)
+        #ui_buffers.Add(quad_buffer,texture)
+        return
+    #DrawAllNowNormals(quad_buffer,texture,geom_shader)
+
+def DrawAllNowNormals(quad_buffer,texture,shader):
+    glActiveTexture(GL_TEXTURE0)
+    glBindTexture(GL_TEXTURE_2D, texture.texture)
+    glActiveTexture(GL_TEXTURE1)
+    glBindTexture(GL_TEXTURE_2D, texture.normal_texture)
+    glActiveTexture(GL_TEXTURE2)
+    glBindTexture(GL_TEXTURE_2D, texture.occlude_texture)
+    glActiveTexture(GL_TEXTURE3)
+    glBindTexture(GL_TEXTURE_2D, texture.displacement_texture)
+
+    glUniform1i(shader.locations.using_textures, 1)
+
+    glEnableVertexAttribArray( shader.locations.vertex_data );
+    glEnableVertexAttribArray( shader.locations.tc_data );
+    glEnableVertexAttribArray( shader.locations.normal_data );
+    glEnableVertexAttribArray( shader.locations.occlude_data );
+    glEnableVertexAttribArray( shader.locations.displace_data );
+    glEnableVertexAttribArray( shader.locations.colour_data );
+
+    glVertexAttribPointer( shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, quad_buffer.vertex_data );
+    glVertexAttribPointer( shader.locations.tc_data, 2, GL_FLOAT, GL_FALSE, 0, quad_buffer.tc_data );
+    glVertexAttribPointer( shader.locations.normal_data, 2, GL_FLOAT, GL_FALSE, 0, quad_buffer.tc_data );
+    glVertexAttribPointer( shader.locations.occlude_data, 2, GL_FLOAT, GL_FALSE, 0, quad_buffer.tc_data );
+    glVertexAttribPointer( shader.locations.displace_data, 2, GL_FLOAT, GL_FALSE, 0, quad_buffer.tc_data );
+    glVertexAttribPointer( shader.locations.colour_data, 4, GL_FLOAT, GL_FALSE, 0, quad_buffer.colour_data );
+
+    glDrawElements(GL_QUADS,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
+    glDisableVertexAttribArray( shader.locations.vertex_data );
+    glDisableVertexAttribArray( shader.locations.tc_data );
+    glDisableVertexAttribArray( shader.locations.normal_data );
+    glDisableVertexAttribArray( shader.locations.occlude_data );
+    glDisableVertexAttribArray( shader.locations.displace_data );
+    glDisableVertexAttribArray( shader.locations.colour_data );
+
+def DrawAllNow(quad_buffer,texture,shader):
+    #This is a copy paste from the above function, but this is the inner loop of the program, and we need it to be fast.
+    #I'm not willing to put conditionals around the normal lines, so I made a copy of the function without them
+    glActiveTexture(GL_TEXTURE0)
+    glBindTexture(GL_TEXTURE_2D, texture.texture)
+    glUniform1i(shader.locations.using_textures, 1)
+
+    glEnableVertexAttribArray( shader.locations.vertex_data );
+    glEnableVertexAttribArray( shader.locations.tc_data );
+    glEnableVertexAttribArray( shader.locations.colour_data );
+
+    glVertexAttribPointer( shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, quad_buffer.vertex_data );
+    glVertexAttribPointer( shader.locations.tc_data, 2, GL_FLOAT, GL_FALSE, 0, quad_buffer.tc_data );
+    glVertexAttribPointer( shader.locations.colour_data, 4, GL_FLOAT, GL_FALSE, 0, quad_buffer.colour_data );
+
+    glDrawElements(GL_QUADS,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
+    glDisableVertexAttribArray( shader.locations.vertex_data );
+    glDisableVertexAttribArray( shader.locations.tc_data );
+    glDisableVertexAttribArray( shader.locations.colour_data );
+
+
+def DrawNoTexture(quad_buffer):
+    """
+    Draw a quadbuffer with only vertex arrays and colour arrays. We need to make sure that
+    we turn the clientstate for texture coordinates back on after we're finished
+    """
+    if quad_buffer.is_ui:
+        ui_buffers.Add(quad_buffer,None)
+        return
+    DrawNoTextureNow(quad_buffer,geom_shader)
+
+def DrawNoTextureNow(quad_buffer,shader):
+
+    glUniform1i(shader.locations.using_textures, 0)
+
+    glEnableVertexAttribArray( shader.locations.vertex_data );
+    glEnableVertexAttribArray( shader.locations.colour_data );
+
+    glVertexAttribPointer( shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, quad_buffer.vertex_data );
+    glVertexAttribPointer( shader.locations.colour_data, 4, GL_FLOAT, GL_FALSE, 0, quad_buffer.colour_data );
+
+    glDrawElements(GL_QUADS,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
+
+    glDisableVertexAttribArray( shader.locations.vertex_data );
+    glDisableVertexAttribArray( shader.locations.colour_data );
+
+def LineWidth(width):
+    glEnable(GL_LINE_SMOOTH)
+    glLineWidth(width)

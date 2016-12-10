@@ -1,0 +1,1 @@
+petscii.png:tiles_atlas_0.png:0:448:128:64
