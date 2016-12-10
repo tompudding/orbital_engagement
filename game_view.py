@@ -85,7 +85,7 @@ class GameView(ui.RootElement):
         self.StartMusic()
 
     def fill_state(self):
-        step = 10
+        step = 100
         try:
             current,state,line_seg = self.future_state[-1]
             ship = state[Objects.SHIP]
@@ -94,7 +94,8 @@ class GameView(ui.RootElement):
             ship = self.ship_body
         t = current + step
         last_pos = ship.pos
-        while t < globals.time + 8000:
+        period = 200000.0
+        while t < globals.time + period:
             ship = ship.step(step * globals.time_factor, self.fixed_bodies)
             state = { Objects.SHIP : ship,
                       Objects.SUN  : self.sun_body }
@@ -108,7 +109,7 @@ class GameView(ui.RootElement):
 
         self.future_state[0][2].SetColour( (1,0,0,1) )
         for i in xrange(1, len(self.future_state)):
-            intensity = 1 - ((self.future_state[i][0] - self.future_state[0][0])/8000.0)
+            intensity = 1 - ((self.future_state[i][0] - self.future_state[0][0])/period)
             self.future_state[i][2].SetColour( (1,0,0,intensity) )
 
 
@@ -135,13 +136,19 @@ class GameView(ui.RootElement):
         if self.mode:
             self.mode.Update(t)
 
+        i = 0
         for i, (t, state, line_seg) in enumerate(self.future_state):
             if t > globals.time:
                 break
             line_seg.Delete()
 
-        current_state = self.future_state[i - 1 if i > 0 else 0][1]
-        self.ship.set_vertices( current_state[Objects.SHIP].pos )
+
+        try:
+            current_state = self.future_state[i - 1 if i > 0 else 0][1]
+            self.ship_body = current_state[Objects.SHIP]
+        except IndexError:
+            pass
+        self.ship.set_vertices( self.ship_body.pos )
         self.future_state = self.future_state[i:]
 
         self.fill_state()
@@ -156,6 +163,11 @@ class GameView(ui.RootElement):
         self.mode = modes.GameOver(self)
 
     def KeyDown(self,key):
+        #rejig stuff
+        for t, state, line_seg in self.future_state:
+            line_seg.Delete()
+        self.future_state = []
+        self.ship_body.velocity += Point(100,0)
         self.mode.KeyDown(key)
 
     def KeyUp(self,key):

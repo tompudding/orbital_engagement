@@ -17,7 +17,7 @@ def Init():
     globals.tile_scale            = Point(1,1)
     globals.scale                 = Point(2,2)
     globals.screen_abs            = Point(w,h)
-    globals.time_factor           = 0.01
+    globals.time_factor           = 0.001
     globals.pixels_to_units       = 1000.0
     globals.units_to_pixels       = 1/globals.pixels_to_units
     globals.music_volume = 0.1
@@ -32,7 +32,7 @@ def Init():
     globals.nightlight_quads      = drawing.QuadBuffer(16)
     globals.temp_mouse_light      = drawing.QuadBuffer(16)
     globals.colour_tiles          = drawing.QuadBuffer(131072)
-    globals.line_buffer           = drawing.LineBuffer(16384)
+    globals.line_buffer           = drawing.LineBuffer(131072)
 
     globals.dirs = globals.types.Directories('resource')
 
@@ -79,8 +79,7 @@ while not done:
         if event.type == pygame.locals.QUIT:
             done = True
             break
-        elif 1:
-            continue
+
         elif (event.type == pygame.KEYDOWN):
             key = event.key
             try:
