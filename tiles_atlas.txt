@@ -1,1 +1,2 @@
-petscii.png:tiles_atlas_0.png:0:448:128:64
+resource/sprites/ship.png:tiles_atlas_0.png:0:992.0:32:32
+resource/sprites/sun.png:tiles_atlas_0.png:32:992.0:32:32

@@ -66,12 +66,63 @@ class ShaderData(object):
     def fragment_shader_attrib_binding(self):
         pass
 
+class State(object):
+    """Stores the state of the tactical viewer; position and scale"""
+    def __init__(self,shader):
+        self.SetShader(shader)
+        self.Reset()
+
+    def SetShader(self,shader):
+        self.shader = shader
+
+    def Reset(self):
+        self.pos = Point(0,0)
+        self.scale = Point(1,1)
+        self.Update()
+
+    def Update(self,pos = None, scale = None):
+        if pos == None:
+            pos = self.pos
+        if scale == None:
+            scale = self.scale
+        if self.shader.locations.translation != None:
+            glUniform2f(self.shader.locations.translation, pos.x, pos.y)
+        if self.shader.locations.scale != None:
+            glUniform2f(self.shader.locations.scale, scale.x, scale.y)
+
+class UIBuffers(object):
+    """Simple storage for ui_buffers that need to be drawn at the end of the frame after the scene has been fully rendered"""
+    def __init__(self):
+        self.Reset()
+
+    def Add(self,quad_buffer,texture):
+        if quad_buffer.mouse_relative:
+            local_state = (state.pos,state.scale)
+        else:
+            local_state = None
+        if texture != None:
+            self.buffers.append( ((quad_buffer,texture,default_shader),local_state,DrawAllNow) )
+        else:
+            self.buffers.append( ((quad_buffer,default_shader),local_state,DrawNoTextureNow) )
+
+    def Reset(self):
+        self.buffers = []
+
+    def Draw(self):
+        for args,local_state,func in self.buffers:
+            if local_state:
+                state.Update(*local_state)
+
+            func(*args)
+            if local_state:
+                state.Update()
+
 z_max            = 10000
 light_shader     = ShaderData()
 
 default_shader   = ShaderData()
 shadow_shader    = ShaderData()
-#state            = State(geom_shader)
+state            = State(default_shader)
 
 gbuffer          = None
 shadow_buffer    = None
@@ -421,7 +472,7 @@ def DrawAllNow(quad_buffer,texture,shader):
     glVertexAttribPointer( shader.locations.tc_data, 2, GL_FLOAT, GL_FALSE, 0, quad_buffer.tc_data );
     glVertexAttribPointer( shader.locations.colour_data, 4, GL_FLOAT, GL_FALSE, 0, quad_buffer.colour_data );
 
-    glDrawElements(GL_QUADS,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
+    glDrawElements(quad_buffer.draw_type,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
     glDisableVertexAttribArray( shader.locations.vertex_data );
     glDisableVertexAttribArray( shader.locations.tc_data );
     glDisableVertexAttribArray( shader.locations.colour_data );
@@ -432,10 +483,10 @@ def DrawNoTexture(quad_buffer):
     Draw a quadbuffer with only vertex arrays and colour arrays. We need to make sure that
     we turn the clientstate for texture coordinates back on after we're finished
     """
-    if quad_buffer.is_ui:
-        ui_buffers.Add(quad_buffer,None)
-        return
-    DrawNoTextureNow(quad_buffer,geom_shader)
+    #if quad_buffer.is_ui:
+        #ui_buffers.Add(quad_buffer,None)
+        #return
+    DrawNoTextureNow(quad_buffer,default_shader)
 
 def DrawNoTextureNow(quad_buffer,shader):
 
@@ -447,7 +498,7 @@ def DrawNoTextureNow(quad_buffer,shader):
     glVertexAttribPointer( shader.locations.vertex_data, 3, GL_FLOAT, GL_FALSE, 0, quad_buffer.vertex_data );
     glVertexAttribPointer( shader.locations.colour_data, 4, GL_FLOAT, GL_FALSE, 0, quad_buffer.colour_data );
 
-    glDrawElements(GL_QUADS,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
+    glDrawElements(quad_buffer.draw_type,quad_buffer.current_size,GL_UNSIGNED_INT,quad_buffer.indices)
 
     glDisableVertexAttribArray( shader.locations.vertex_data );
     glDisableVertexAttribArray( shader.locations.colour_data );

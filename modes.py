@@ -66,7 +66,7 @@ class Titles(Mode):
     def Startup(self,t):
         return TitleStages.STARTED
 
-class GameMode(Mode):
+class Combat(Mode):
     def __init__(self,parent):
         self.parent = parent
 

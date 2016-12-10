@@ -116,7 +116,7 @@ class SubImage(object):
 
 
 class TextureAtlas(object):
-    def __init__(self,image_filename,data_filename,extra_names = True):
+    def __init__(self,image_filename,data_filename,extra_names = False):
         if extra_names:
             extra_names = ('_normal','_occlude','_displace')
             extra_names = [image_filename[:-4] + extra + image_filename[-4:] for extra in extra_names]

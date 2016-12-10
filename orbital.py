@@ -21,20 +21,21 @@ def Init():
     globals.screen                = globals.screen_abs/globals.scale
     globals.screen_root           = ui.UIRoot(Point(0,0),globals.screen_abs)
     globals.mouse_screen          = Point(0,0)
-    globals.quad_buffer           = drawing.QuadBuffer(16384)
+    globals.quad_buffer           = drawing.QuadBuffer(16384, ui=True)
     globals.screen_texture_buffer = drawing.QuadBuffer(256, ui=True)
     globals.ui_buffer             = drawing.QuadBuffer(1024, ui=True)
-    #globals.nonstatic_text_buffer = drawing.QuadBuffer(131072, ui=True)
+    globals.nonstatic_text_buffer = drawing.QuadBuffer(131072, ui=True)
     globals.light_quads           = drawing.QuadBuffer(16384)
     globals.nightlight_quads      = drawing.QuadBuffer(16)
     globals.temp_mouse_light      = drawing.QuadBuffer(16)
     globals.colour_tiles          = drawing.QuadBuffer(131072)
+    globals.line_buffer           = drawing.LineBuffer(16384)
 
     globals.dirs = globals.types.Directories('resource')
 
     pygame.init()
     screen = pygame.display.set_mode((w,h),pygame.OPENGL|pygame.DOUBLEBUF)
-    pygame.display.set_caption('Director Morse')
+    pygame.display.set_caption('Orbital Engagement')
     drawing.Init(globals.screen.x,globals.screen.y)
 
     globals.text_manager = drawing.texture.TextManager()
@@ -42,6 +43,7 @@ def Init():
 
 Init()
 
+globals.time = pygame.time.get_ticks()
 globals.current_view = globals.game_view = game_view.GameView()
 
 done = False
@@ -60,12 +62,11 @@ while not done:
         #print 'FPS:',clock.get_fps()
         last = t
 
-    #globals.current_time = t
-
-    #globals.current_view.Update(t)
-    #globals.current_view.Draw()
-    #globals.screen_root.Draw()
+    globals.t = t
     drawing.NewFrame()
+    globals.current_view.Update(t)
+    globals.current_view.Draw()
+    globals.screen_root.Draw()
     globals.text_manager.Draw()
     drawing.EndFrame()
     pygame.display.flip()
