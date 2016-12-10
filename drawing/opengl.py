@@ -202,7 +202,7 @@ def Init(w,h):
     glEnable(GL_TEXTURE_2D)
     glEnable(GL_BLEND)
     glEnable(GL_DEPTH_TEST);
-    #glAlphaFunc(GL_GREATER, 0.25);
+    glAlphaFunc(GL_GREATER, 0.25);
     glEnable(GL_ALPHA_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
@@ -223,12 +223,12 @@ def NewFrame():
     # ui_buffers.Reset()
     # geom_shader.Use()
     # gbuffer.BindForWriting()
-    # glDepthMask(GL_TRUE)
-    # glClearColor(0.0, 0.0, 0.0, 1.0)
-    # glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    # glEnable(GL_DEPTH_TEST)
-    # glEnable(GL_BLEND)
-    # glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    glDepthMask(GL_TRUE)
+    glClearColor(0.0, 0.0, 0.0, 1.0)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glEnable(GL_DEPTH_TEST)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
 def EndFrame():
     return

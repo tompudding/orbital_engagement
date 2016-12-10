@@ -17,6 +17,9 @@ def Init():
     globals.tile_scale            = Point(1,1)
     globals.scale                 = Point(2,2)
     globals.screen_abs            = Point(w,h)
+    globals.time_factor           = 0.01
+    globals.pixels_to_units       = 1000.0
+    globals.units_to_pixels       = 1/globals.pixels_to_units
     globals.music_volume = 0.1
     globals.screen                = globals.screen_abs/globals.scale
     globals.screen_root           = ui.UIRoot(Point(0,0),globals.screen_abs)
@@ -55,14 +58,14 @@ drawing.InitDrawing()
 #a.SetVertices(Point(0,0), Point(1000,1000), 1000)
 
 while not done:
-
-    clock.tick(60)
     globals.time = t = pygame.time.get_ticks()
+    clock.tick(60)
+    globals.time = pygame.time.get_ticks()
     if t - last > 1000:
         #print 'FPS:',clock.get_fps()
         last = t
 
-    globals.t = t
+
     drawing.NewFrame()
     globals.current_view.Update(t)
     globals.current_view.Draw()
