@@ -67,8 +67,57 @@ class Titles(Mode):
         return TitleStages.STARTED
 
 class Combat(Mode):
+    speed = 10
+    direction_amounts = {pygame.K_LEFT  : Point(-0.01*speed, 0.00),
+                         pygame.K_RIGHT : Point( 0.01*speed, 0.00),
+                         pygame.K_UP    : Point( 0.00, 0.01*speed),
+                         pygame.K_DOWN  : Point( 0.00,-0.01*speed)}
+    translations = {pygame.K_a : pygame.K_LEFT,
+                    pygame.K_d : pygame.K_RIGHT,
+                    pygame.K_w : pygame.K_UP,
+                    pygame.K_s : pygame.K_DOWN}
+    class KeyFlags:
+        LEFT  = 1
+        RIGHT = 2
+        UP    = 4
+        DOWN  = 8
+    keyflags = {pygame.K_LEFT  : KeyFlags.LEFT,
+                pygame.K_RIGHT : KeyFlags.RIGHT,
+                pygame.K_UP    : KeyFlags.UP,
+                pygame.K_DOWN  : KeyFlags.DOWN}
+
     def __init__(self,parent):
         self.parent = parent
+        self.keydownmap = {}
+        #Let's do WASD too...
+
+    def KeyDown(self,input_key):
+        try:
+            key = self.translations[input_key]
+        except KeyError:
+            key = input_key
+        if key in self.keyflags:
+            if self.keyflags[key] in self.keydownmap:
+                return
+            if key in self.direction_amounts:
+                self.keydownmap[self.keyflags[key]] = input_key
+                self.parent.move_direction += self.direction_amounts[key]
+
+    def KeyUp(self,input_key):
+        try:
+            key = self.translations[input_key]
+        except KeyError:
+            key = input_key
+        if key in self.keyflags:
+            if self.keyflags[key] not in self.keydownmap:
+                return
+            if key in self.direction_amounts and (self.keydownmap[self.keyflags[key]] == input_key):
+                del self.keydownmap[self.keyflags[key]]
+                self.parent.move_direction -= self.direction_amounts[key]
+
+        #elif key in self.inv_keys:
+        #    inv = self.inv_keys.index(key)
+        #    self.parent.map.player.Select(inv)
 
 
 class GameOver(Mode):

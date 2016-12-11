@@ -15,12 +15,13 @@ class Body(object):
         self.velocity = velocity
         self.mass = mass
         self.type = type
+        self.acc = Point(0,0)
         if last_pos:
             self.line_seg = drawing.Line(globals.line_buffer)
             self.line_seg.SetVertices( last_pos , self.pos, 1000 )
 
     def step(self, elapsed, gravity_sources, line=True):
-        acc = Point(0,0)
+        acc = self.acc
         for body in gravity_sources:
             acc += body.acc_due_to_gravity(self)
 
@@ -30,6 +31,16 @@ class Body(object):
         pos = self.pos + (distance_travelled * globals.units_to_pixels)
 
         return Body(pos, velocity, self.type, self.mass, self.pos if line else None)
+
+    def set_force(self, force):
+        new_acc = force * globals.pixels_to_units
+        if (new_acc - self.acc).SquareLength() < 10:
+            changed = False
+        else:
+            changed = True
+        self.acc = new_acc
+        print self.acc
+        return changed
 
     def acc_due_to_gravity(self, body):
         vector = (self.pos - body.pos) * globals.pixels_to_units
@@ -151,6 +162,8 @@ class Explosion(object):
             intensity = 1 - partial
             self.lines[i].SetColour( (1,1,1,intensity))
         if globals.time > self.end:
+            for line in self.lines:
+                line.Delete()
             return False
         return True
 
@@ -219,6 +232,7 @@ class GameView(ui.RootElement):
         self.saved_segs = { t : [] for t in Objects.mobile }
 
         self.scan_start = None
+        self.move_direction = Point(0,0)
         self.StartMusic()
 
     def fill_state(self):
@@ -312,6 +326,7 @@ class GameView(ui.RootElement):
         if self.mode:
             self.mode.Update(t)
 
+        #kill missiles in flight
         to_destroy = []
         for obj_type, t in self.detonation_times.iteritems():
             if t < globals.time:
@@ -319,6 +334,7 @@ class GameView(ui.RootElement):
         for obj_type in to_destroy:
             self.destroy_missile(obj_type)
 
+        #draw explosions
         if self.explosions:
             new_explosions = []
             for exp in self.explosions:
@@ -341,6 +357,13 @@ class GameView(ui.RootElement):
 
                 # except:
                 #     pass
+                if obj_type == Objects.PLAYER:
+                    #cheat as the sun is at 0,0
+                    body = self.initial_state[obj_type]
+                    move_force = body.pos.unit_vector() * self.move_direction * 40
+
+                    if body.set_force(move_force):
+                        self.reset_line(obj_type)
 
                 n = self.initial_state[obj_type].step(elapsed * globals.time_factor, self.fixed_bodies, line = False)
                 self.object_quads[obj_type].set_vertices( n.pos )
@@ -401,6 +424,17 @@ class GameView(ui.RootElement):
 
         if self.game_over:
             return
+
+    def reset_line(self, obj_type):
+        for t, state in self.future_state:
+            state[obj_type].line_seg.Delete()
+        for t, state in self.future_state:
+            del state[obj_type]
+        for (t,line_seg) in self.saved_segs[obj_type]:
+            line_seg.Delete()
+        self.saved_segs[obj_type] = []
+
+        self.fill_state_obj(Objects.PLAYER)
 
     def launch_missile(self, source_type, angle, delay):
         #find a new id for the missile
@@ -478,6 +512,7 @@ class GameView(ui.RootElement):
         # d = 50 if key == 45 else -50
         # self.initial_state[Objects.PLAYER].velocity += Point(0,d)
         # self.fill_state_obj(Objects.PLAYER)
+
         self.mode.KeyDown(key)
 
     def KeyUp(self,key):

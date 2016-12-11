@@ -58,7 +58,7 @@ drawing.InitDrawing()
 #a.SetVertices(Point(0,0), Point(1000,1000), 1000)
 
 while not done:
-    globals.time = t = pygame.time.get_ticks()*0.5
+    globals.time = t = pygame.time.get_ticks()*5
     clock.tick(60)
 
     if t - last > 1000:
