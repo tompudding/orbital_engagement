@@ -1,3 +1,4 @@
-resource/sprites/missile.png:tiles_atlas_0.png:0:32.0:32:32
-resource/sprites/ship.png:tiles_atlas_0.png:32:32.0:32:32
-resource/sprites/sun.png:tiles_atlas_0.png:0:0.0:32:32
+resource/sprites/enemy.png:resource/tiles_atlas_0.png:0:96.0:32:32
+resource/sprites/missile.png:resource/tiles_atlas_0.png:32:96.0:32:32
+resource/sprites/ship.png:resource/tiles_atlas_0.png:64:96.0:32:32
+resource/sprites/sun.png:resource/tiles_atlas_0.png:96:96.0:32:32

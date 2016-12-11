@@ -111,6 +111,12 @@ class Ship(BodyImage):
     mass = 100
     height = 8000
 
+class Enemy(Ship):
+    texture_name = 'enemy.png'
+    def __init__(self, *args, **kwargs):
+        super(Enemy, self).__init__(*args, **kwargs)
+        self.locked = False
+
 class Missile(BodyImage):
     texture_name = 'missile.png'
     mass = 1
@@ -214,7 +220,7 @@ class GameView(ui.RootElement):
         self.explosion_line_buffer = drawing.LineBuffer(32*Explosion.line_segs)
         self.sun = Sun()
         self.ship = Ship()
-        self.enemy = Ship()
+        self.enemy = Enemy()
         self.sun_body  = FixedBody( pos=Point(0,0), velocity=Point(0,0), type=Objects.SUN, mass=100000000 )
         self.sun.set_vertices(self.sun_body.pos)
         orbit_velocity = (math.sqrt(G * self.sun_body.mass / (100)))
@@ -222,7 +228,7 @@ class GameView(ui.RootElement):
         orbit_velocity = orbit_velocity*280
         orbit_velocity = 10000
         self.ship_body = Body( Point(100, 0), (Point(0,-1).unit_vector()) * orbit_velocity, type=Objects.PLAYER, mass=1 )
-        self.enemy_body = Body( Point(-100, -100), (Point(-1,1).unit_vector()) * 12000, type=Objects.ENEMY, mass=1 )
+        self.enemy_body = Body( Point(75, 75), (Point(1,-1).unit_vector()) * 9000, type=Objects.ENEMY, mass=1 )
         self.fixed_bodies = [self.sun_body]
         self.missile_images = [Missile() for i in xrange(5)]
         self.initial_state = { Objects.PLAYER : self.ship_body,
@@ -274,6 +280,11 @@ class GameView(ui.RootElement):
                              Point(0.2,0.075),
                              self.keypad_pressed)
 
+        self.scan_button = ui.ImageBoxButton(globals.screen_root,
+                                             Point(0.3,0.1),
+                                             ('button_up_..png','button_down_..png'),
+                                             lambda a,b,c: self.start_scan())
+
         self.StartMusic()
 
     def keypad_pressed(self, n):
@@ -303,11 +314,10 @@ class GameView(ui.RootElement):
 
         for obj_type in Objects.mobile:
             #Hack to not draw the first line segment which is behind us
-            #self.future_state[0][1][obj_type].line_seg.SetColour( (0,0,0,0) )
             for i in xrange(0, len(self.future_state)):
                 intensity = 1^(i&1)# - ((self.future_state[i][0] - self.future_state[0][0])/period)
                 try:
-                    if obj_type in line_colours:
+                    if obj_type in line_colours and (obj_type != Objects.ENEMY or self.enemy.locked):
                         col = line_colours[obj_type] + (intensity, )
                         self.future_state[i][1][obj_type].line_seg.SetColour( col )
                     else:
@@ -316,6 +326,8 @@ class GameView(ui.RootElement):
                     pass
 
     def fill_state_obj(self, obj_type):
+        if obj_type == Objects.ENEMY and not self.enemy.locked:
+            return
         last = self.initial_state[obj_type]
         for t, state in self.future_state:
             if obj_type not in state:
@@ -338,7 +350,7 @@ class GameView(ui.RootElement):
 
         drawing.LineWidth(8)
         drawing.DrawNoTexture(self.explosion_line_buffer)
-        drawing.LineWidth(3)
+        drawing.LineWidth(1)
         drawing.DrawNoTexture(globals.line_buffer)
 
         drawing.DrawNoTexture(globals.colour_tiles)
@@ -410,9 +422,18 @@ class GameView(ui.RootElement):
                         self.reset_line(obj_type)
 
                 n = self.initial_state[obj_type].step(elapsed * globals.time_factor, self.fixed_bodies, line = False)
-                self.object_quads[obj_type].set_vertices( n.pos )
-                self.object_quads[obj_type].quad.Enable()
+                if (obj_type == Objects.ENEMY and not self.enemy.locked):
+                    self.object_quads[obj_type].quad.Disable()
+                else:
+                    self.object_quads[obj_type].set_vertices( n.pos )
+                    self.object_quads[obj_type].quad.Enable()
                 self.initial_state[obj_type] = n
+
+        if self.enemy.locked:
+            distance = (self.initial_state[Objects.PLAYER].pos - self.initial_state[Objects.ENEMY].pos).length()
+            if distance > self.scan_radius:
+                self.enemy.locked = False
+                self.reset_line(Objects.ENEMY)
 
         if self.scan_start:
             partial = globals.time - self.scan_start
@@ -478,9 +499,10 @@ class GameView(ui.RootElement):
             line_seg.Delete()
         self.saved_segs[obj_type] = []
 
-        self.fill_state_obj(Objects.PLAYER)
+        self.fill_state_obj(obj_type)
 
     def launch_missile(self, source_type, angle, delay):
+        return
         #find a new id for the missile
         for obj_type in Objects.missiles:
             if obj_type not in self.initial_state:
@@ -532,6 +554,11 @@ class GameView(ui.RootElement):
             angle = angles[(i + 1) % len(angles)]
             v = cmath.rect(r, angle)
             p = self.scan_start_pos + Point(v.real, v.imag)
+            if not self.enemy.locked:
+                d = (p - self.initial_state[Objects.ENEMY].pos).SquareLength()
+                if d < 1000:
+                    self.enemy.locked = True
+
             self.scan_lines[i].SetVertices( last, p, 10000 )
             last = p
             intensity = 1 - partial
@@ -540,6 +567,8 @@ class GameView(ui.RootElement):
 
     def end_scan(self):
         self.scan_start = None
+        for line in self.scan_lines:
+            line.SetColour( (0,0,0,0) )
 
     def GameOver(self):
         self.game_over = True
@@ -567,7 +596,7 @@ class GameView(ui.RootElement):
             else:
                 self.music_playing = True
                 pygame.mixer.music.set_volume(1)
-        if key == pygame.K_s:
+        if key == pygame.K_SPACE:
             self.start_scan()
         self.mode.KeyUp(key)
 
