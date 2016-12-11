@@ -19,6 +19,7 @@ class Body(object):
         if last_pos:
             self.line_seg = drawing.Line(globals.line_buffer)
             self.line_seg.SetVertices( last_pos , self.pos, 1000 )
+        self.temp_bodies = []
 
     def step(self, elapsed, gravity_sources, line=True):
         acc = self.acc
@@ -56,15 +57,15 @@ class Body(object):
         distance, angle_to_player = cmath.polar(diff[0] + diff[1]*1j)
         gap = math.pi/32
         angle_guesses = [angle_to_player + i*gap for i in xrange(-16,16)]
-        #for b in self.temp_bodies:
+        # for b in self.temp_bodies:
         #    b.line_seg.Delete()
-        #temp_bodies = []
+        # self.temp_bodies = []
         period = 40000.0
         best_time = period
         firing_angle = None
         for angle in angle_guesses:
             body = self
-            v = cmath.rect(20000, angle)
+            v = cmath.rect(globals.game_view.missile_speed, angle)
             velocity = Point(v.real, v.imag)
             body = Body(body.pos, body.velocity + velocity, body.type, body.mass)
             step = 1000
@@ -77,12 +78,12 @@ class Body(object):
                     if distance < min_distance and (t - globals.time) < best_time:
                         best_time = t - globals.time
                         firing_angle = angle
-                    #body.apply_force_towards( target, 1000 )
+                    #body.apply_force_towards( target, 1 )
                 body = body.step(step * globals.time_factor, globals.game_view.fixed_bodies, line = False)
-                #temp_bodies.append(body)
+                #self.temp_bodies.append(body)
                 t += step
-        #for body in self.temp_bodies:
-        #    body.line_seg.SetColour( (1,1,1,1) )
+        # for body in self.temp_bodies:
+        #     body.line_seg.SetColour( (1,1,1,1) )
         if firing_angle is None:
             return None
         return firing_angle, best_time
@@ -209,6 +210,7 @@ class GameView(ui.RootElement):
     explosion_radius = 20
     explosion_duration = 125
     stabalise_duration = 2000
+    missile_speed = 200
     no_overlay = (0,0,0,0)
     disabled_colour = (0,0,0,0.5)
     alert_colour = (1,0,0,0.5)
@@ -559,7 +561,7 @@ class GameView(ui.RootElement):
             return
         print 'new missile is',obj_type
         source = self.initial_state[source_type]
-        v = cmath.rect(20000, angle)
+        v = cmath.rect(self.missile_speed, angle)
         velocity = Point(v.real, v.imag)
         self.initial_state[obj_type] = Body( source.pos, source.velocity + velocity, obj_type, Missile.mass )
         self.detonation_times[obj_type] = globals.time + delay
@@ -627,7 +629,7 @@ class GameView(ui.RootElement):
             if not self.enemy.locked:
                 d = (p - self.initial_state[Objects.ENEMY].pos).SquareLength()
                 if d < 1000:
-                    self.enemy.locked = True
+                    self.lock_on(self.enemy)
 
             self.scan_lines[i].SetVertices( last, p, 10000 )
             last = p
@@ -639,6 +641,19 @@ class GameView(ui.RootElement):
         self.scan_start = None
         for line in self.scan_lines:
             line.SetColour( (0,0,0,0) )
+
+    def lock_on(self, enemy):
+        enemy.locked = True
+        #Let's try and grab a firing solution
+        solution = self.initial_state[Objects.PLAYER].scan_for_target( self.initial_state[Objects.ENEMY], self.explosion_radius )
+        if solution is None:
+            print 'Error grabbing solution'
+            return
+        self.set_firing_solution( *solution )
+
+    def set_firing_solution(self, angle, delay):
+        print 'set firing solution', angle, delay
+        self.launch_missile( Objects.PLAYER, angle, delay )
 
     def GameOver(self):
         self.game_over = True
@@ -671,6 +686,6 @@ class GameView(ui.RootElement):
         if key == pygame.K_RETURN:
             self.stabalise_orbit(Objects.PLAYER)
         if key == pygame.K_RETURN:
-            self.enemy.locked = True
+            self.lock_on(self.enemy)
         self.mode.KeyUp(key)
 
