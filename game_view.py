@@ -120,12 +120,11 @@ class Objects:
     mobile = [PLAYER, ENEMY] + missiles
 
 line_colours = { Objects.PLAYER : (0,0,1),
-                 Objects.MISSILE1 : (1,1,1),
-                 Objects.MISSILE2 : (1,1,1),
-                 Objects.MISSILE3 : (1,1,1),
-                 Objects.MISSILE4 : (1,1,1),
-                 Objects.MISSILE5 : (1,1,1),
+                 #Objects.MISSILE1 : (0.5,0.5,0.5),
                  Objects.ENEMY  : (1,0,0) }
+
+#for t in Objects.missiles:
+#    line_colours[t] = line_colours[Objects.MISSILE1]
 
 class GameView(ui.RootElement):
     step_time = 500
@@ -134,7 +133,7 @@ class GameView(ui.RootElement):
     scan_duration = 500.0
     scan_line_parts = 32
     scan_radius = 150
-    explosion_radius = 100
+    explosion_radius = 10
 
     def __init__(self):
         self.atlas = globals.atlas = drawing.texture.TextureAtlas('tiles_atlas_0.png','tiles_atlas.txt')
@@ -169,6 +168,11 @@ class GameView(ui.RootElement):
                               Objects.MISSILE4 : self.missile_images[3],
                               Objects.MISSILE5 : self.missile_images[4],
                               }
+        self.trail_properties = { Objects.PLAYER : (60000.0, 8000.0),
+                                  Objects.ENEMY  : (60000.0, 8000.0) }
+        for t in Objects.missiles:
+            self.trail_properties[t] = (0,400.0)
+
         self.scan_lines = [drawing.Line(globals.line_buffer) for i in xrange(self.scan_line_parts)]
         #set up the state
         self.future_state = []
@@ -178,6 +182,7 @@ class GameView(ui.RootElement):
         self.viewpos = Point(-640,-360)
         self.temp_bodies = []
         self.last = None
+        self.detonation_times = {}
 
         self.mode = modes.Combat(self)
         self.saved_segs = { t : [] for t in Objects.mobile }
@@ -213,10 +218,13 @@ class GameView(ui.RootElement):
             for i in xrange(0, len(self.future_state)):
                 intensity = 1^(i&1)# - ((self.future_state[i][0] - self.future_state[0][0])/period)
                 try:
-                    col = line_colours[obj_type] + (intensity, )
-                    self.future_state[i][1][obj_type].line_seg.SetColour( col )
+                    if obj_type in line_colours:
+                        col = line_colours[obj_type] + (intensity, )
+                        self.future_state[i][1][obj_type].line_seg.SetColour( col )
+                    else:
+                        self.future_state[i][1][obj_type].line_seg.Disable()
                 except KeyError:
-                    continue
+                    pass
 
     def fill_state_obj(self, obj_type):
         last = self.initial_state[obj_type]
@@ -253,7 +261,7 @@ class GameView(ui.RootElement):
         for i, (t, state) in enumerate(self.future_state):
             if t < target:
                 closest_before = state[obj_type]
-            if t > globals.time:
+            if t > target:
                 closest_after = state[obj_type]
                 break
 
@@ -270,6 +278,13 @@ class GameView(ui.RootElement):
         if self.mode:
             self.mode.Update(t)
 
+        to_destroy = []
+        for obj_type, t in self.detonation_times.iteritems():
+            if t < globals.time:
+                to_destroy.append(obj_type)
+        for obj_type in to_destroy:
+            self.destroy_missile(obj_type)
+
         if self.last is None:
             self.last = globals.time
         else:
@@ -278,8 +293,16 @@ class GameView(ui.RootElement):
             for obj_type in Objects.mobile:
                 if obj_type not in self.initial_state:
                     continue
+                # try:
+                #     target_type,force = self.powered[obj_type]
+                #     target = self.initial_state[target_type].pos
+
+                # except:
+                #     pass
+
                 n = self.initial_state[obj_type].step(elapsed * globals.time_factor, self.fixed_bodies, line = False)
                 self.object_quads[obj_type].set_vertices( n.pos )
+                self.object_quads[obj_type].quad.Enable()
                 self.initial_state[obj_type] = n
 
         if self.scan_start:
@@ -290,6 +313,11 @@ class GameView(ui.RootElement):
                 self.draw_scan( partial / self.scan_duration )
 
         if self.future_state[1][0] < globals.time:
+            #Now there's been an update, let's see if we can get a firing solution on the player :)
+            solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
+            if solution is not None:
+                print 'Enemy has firing solution go go go',solution
+                self.launch_missile( Objects.ENEMY, *solution )
             #Kill the line segments that are in the future
             for t,state in self.future_state:
                 for obj_type in Objects.mobile:
@@ -300,28 +328,30 @@ class GameView(ui.RootElement):
                     else:
                         #For the others store them for later deletion
                         intensity = 1
-                        col = line_colours[obj_type] + (intensity, )
+                        try:
+                            col = line_colours[obj_type] + (intensity, )
+                        except:
+                            continue
                         state[obj_type].line_seg.SetColour( col )
                         self.saved_segs[obj_type].append( (t, state[obj_type].line_seg ) )
 
             self.future_state = []
             self.fill_state()
-            #Now there's been an update, let's see if we can get a firing solution on the player :)
-            solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
-            if solution is not None:
-                print 'Enemy has firing solution go go go',solution
-                self.launch_missile( Objects.ENEMY, *solution )
+
 
         for obj_type in Objects.mobile:
             new_saved = []
+            trail_age, trail_fade = self.trail_properties[obj_type]
+            if obj_type not in self.saved_segs:
+                continue
             for (t,line_seg) in self.saved_segs[obj_type]:
                 age = globals.time - t
-                if age < self.trail_age:
+                if age < trail_age:
                     new_saved.append( (t,line_seg) )
-                elif age > self.trail_age + self.trail_fade:
+                elif age > trail_age + trail_fade:
                     line_seg.Delete()
                 else:
-                    intensity = 1 - ((age - self.trail_age) / self.trail_fade)
+                    intensity = 1 - ((age - trail_age) / trail_fade)
                     col = line_colours[obj_type] + (intensity, )
                     line_seg.SetColour( col )
                     new_saved.append( (t,line_seg) )
@@ -344,6 +374,21 @@ class GameView(ui.RootElement):
         v = cmath.rect(20000, angle)
         velocity = Point(v.real, v.imag)
         self.initial_state[obj_type] = Body( source.pos, source.velocity + velocity, obj_type, Missile.mass )
+        self.detonation_times[obj_type] = globals.time + delay
+
+    def destroy_missile(self, obj_type):
+        #remove it from the initial_state
+        del self.initial_state[obj_type]
+        del self.detonation_times[obj_type]
+        for t,state in self.future_state:
+            if obj_type in state:
+                state[obj_type].line_seg.Delete()
+            del state[obj_type]
+        self.object_quads[obj_type].quad.Disable()
+        if obj_type in self.saved_segs:
+            for (t,seg) in self.saved_segs[obj_type]:
+                seg.Delete()
+            self.saved_segs[obj_type] = []
 
 
     def start_scan(self):
