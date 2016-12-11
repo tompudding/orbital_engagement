@@ -388,7 +388,7 @@ class GameView(ui.RootElement):
             box = ui.TextBox(parent = globals.screen_root,
                              bl     = bl         ,
                              tr     = tr         ,
-                             text   = 'test %d a b c d e f g h' % i ,
+                             text   = ' '  ,
                              textType = drawing.texture.TextTypes.SCREEN_RELATIVE,
                              colour = (0,1,0,1),
                              scale  = 4)
@@ -795,7 +795,7 @@ class GameView(ui.RootElement):
         delay_seconds = delay/globals.tick_factor
         self.fuse_text.SetText('%05.1f' % delay_seconds)
 
-        self.launch_missile( Objects.PLAYER, angle, delay )
+        #self.launch_missile( Objects.PLAYER, angle, delay )
 
     def GameOver(self):
         self.game_over = True
