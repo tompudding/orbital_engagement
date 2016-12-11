@@ -589,16 +589,16 @@ class ImageBoxToggleButton(ImageBoxButton):
         self.state = False
 
     def Depress(self, pos):
-        pass
+        self.quad.SetTextureCoordinates(self.tc_normal if self.state else self.tc_depressed)
 
     def Undepress(self):
-        pass
+        self.quad.SetTextureCoordinates(self.tc_depressed if self.state else self.tc_normal)
 
     def Delete(self):
         self.border.Delete()
         super(ImageBoxButton,self).Delete()
 
-    def OnClick(self,pos,button):
+    def OnClick(self,pos,button,skip_callback=False):
         if self.state:
             self.state = False
             self.quad.SetTextureCoordinates(self.tc_normal)

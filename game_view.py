@@ -507,10 +507,35 @@ class GameView(ui.RootElement):
                                                   ('button_up_..png','button_down_..png'),
                                                   lambda a,b,c: self.hit_stabalise())
 
+
         self.manual_button = ui.ImageBoxToggleButton(globals.screen_root,
                                                      Point(0.3,0.06),
                                                      ('toggle_off.png','toggle_on.png'),
                                                      self.manual_firing)
+
+        bl = Point(0.7,0.07)
+        self.missile_button = ui.ImageBoxToggleButton(globals.screen_root,
+                                                      bl + Point(0,0.08),
+                                                      ('button_missile.png','button_missile_pressed.png'),
+                                                      lambda state,weapon=0: self.select_weapon(state, weapon))
+
+        self.probe_button = ui.ImageBoxToggleButton(globals.screen_root,
+                                                    bl + Point(0,0),
+                                                    ('button_probe.png','button_probe_pressed.png'),
+                                                    lambda state,weapon=1: self.select_weapon(state, weapon))
+
+        self.nuke_button = ui.ImageBoxToggleButton(globals.screen_root,
+                                                   bl + Point(0.12,0.08),
+                                                   ('button_nuke.png','button_nuke_pressed.png'),
+                                                   lambda state,weapon=2: self.select_weapon(state, weapon))
+
+        self.chaff_button = ui.ImageBoxToggleButton(globals.screen_root,
+                                                    bl + Point(0.12,0),
+                                                    ('button_chaff.png','button_chaff_pressed.png'),
+                                                    lambda state,weapon=3: self.select_weapon(state, weapon))
+
+        self.weapon_buttons = [self.missile_button, self.probe_button, self.nuke_button, self.chaff_button]
+
 
         self.StartMusic()
         self.stabalise_orbit(Objects.ENEMY)
@@ -540,6 +565,7 @@ class GameView(ui.RootElement):
                                     scale  = 8)
 
         self.firing_solution = None
+        self.selected_weapon = None
         self.firing_solution_steps = []
 
     def keypad_pressed(self, n):
@@ -836,6 +862,17 @@ class GameView(ui.RootElement):
             self.saved_segs[obj_type] = []
 
         self.fill_state_obj(obj_type)
+
+    def select_weapon(self, state, index):
+        if not state:
+            #don't care
+            return
+
+        if self.selected_weapon is not None and self.selected_weapon != index:
+            if self.weapon_buttons[self.selected_weapon].state:
+                self.weapon_buttons[self.selected_weapon].OnClick(None,None,skip_callback=True)
+
+        self.selected_weapon = index
 
     def launch_missile(self, source_type, angle, delay):
         #find a new id for the missile
