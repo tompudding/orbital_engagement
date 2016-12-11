@@ -577,6 +577,38 @@ class ImageBoxButton(ImageBox):
         if self.callback:
             self.callback(self,pos,button)
 
+class ImageBoxToggleButton(ImageBoxButton):
+    def __init__(self,
+                 parent,
+                 pos,
+                 texture_name,
+                 callback,
+                 buffer=None,
+                 level=None):
+        super(ImageBoxToggleButton,self).__init__(parent,pos,texture_name,callback,buffer,level)
+        self.state = False
+
+    def Depress(self, pos):
+        pass
+
+    def Undepress(self):
+        pass
+
+    def Delete(self):
+        self.border.Delete()
+        super(ImageBoxButton,self).Delete()
+
+    def OnClick(self,pos,button):
+        if self.state:
+            self.state = False
+            self.quad.SetTextureCoordinates(self.tc_normal)
+        else:
+            self.state = True
+            self.quad.SetTextureCoordinates(self.tc_depressed)
+
+        if self.callback:
+            self.callback(self.state)
+
 
 class TextBox(UIElement):
     """ A Screen-relative text box wraps text to a given size """

@@ -507,10 +507,10 @@ class GameView(ui.RootElement):
                                                   ('button_up_..png','button_down_..png'),
                                                   lambda a,b,c: self.hit_stabalise())
 
-        self.manual_button = ui.ImageBoxButton(globals.screen_root,
-                                               Point(0.3,0.06),
-                                               ('toggle_off.png','toggle_on.png'),
-                                               lambda a,b,c: self.manual_firing())
+        self.manual_button = ui.ImageBoxToggleButton(globals.screen_root,
+                                                     Point(0.3,0.06),
+                                                     ('toggle_off.png','toggle_on.png'),
+                                                     self.manual_firing)
 
         self.StartMusic()
         self.stabalise_orbit(Objects.ENEMY)
@@ -744,6 +744,7 @@ class GameView(ui.RootElement):
                     self.clear_firing_solution_steps()
                     v = cmath.rect(self.missile_speed, self.firing_solution[0])
                     velocity = Point(v.real, v.imag)
+                    body = self.initial_state[obj_type]
                     body = Body( body.pos, body.velocity + velocity, Objects.MISSILE1, Missile.mass )
                     for i in xrange(5):
                         body = body.step(2000 * globals.time_factor, self.fixed_bodies)
@@ -933,6 +934,8 @@ class GameView(ui.RootElement):
 
     def lock_on(self, enemy, reacquire=False):
         enemy.locked = True
+        if self.manual_button.state:
+            return
         #Let's try and grab a firing solution
         solution = self.initial_state[Objects.PLAYER].scan_for_target( self.initial_state[Objects.ENEMY], self.explosion_radius )
         if solution is None:
@@ -942,10 +945,8 @@ class GameView(ui.RootElement):
 
     def lose_lock(self, enemy):
         enemy.locked = False
-        if self.firing_solution:
+        if self.firing_solution and not self.manual_button.state:
             self.clear_firing_solution()
-            self.bearing_text.SetText('---.-')
-            self.fuse_text.SetText('---.-')
         self.reset_line(Objects.ENEMY)
         self.console.add_text('Target lost')
 
@@ -953,6 +954,8 @@ class GameView(ui.RootElement):
         #Draw the current firing soltion
         self.firing_solution = None
         self.clear_firing_solution_steps()
+        self.bearing_text.SetText('---.-')
+        self.fuse_text.SetText('---.-')
 
     def clear_firing_solution_steps(self):
         for body in self.firing_solution_steps:
@@ -975,13 +978,16 @@ class GameView(ui.RootElement):
 
         #self.launch_missile( Objects.PLAYER, angle, delay )
 
-    def manual_firing(self):
-        print 'manual'
+    def manual_firing(self, state):
+        print 'manual',state
         if self.console.entering:
             self.console.entering = False
             self.console.add_text('\ncancelled')
             return
 
+        if not state:
+            self.clear_firing_solution()
+            return
         self.console.add_text('Enter bearing:')
         self.console.entering = 1
         self.keypad.buffer = []
