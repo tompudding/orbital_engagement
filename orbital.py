@@ -35,6 +35,7 @@ def Init():
     globals.colour_tiles          = drawing.QuadBuffer(131072)
     globals.line_buffer           = drawing.LineBuffer(131072)
     globals.screen_quadbuffer     = drawing.QuadBuffer(16)
+    globals.tick_factor           = 500
     globals.screen.crt      = drawing.Quad(globals.screen_quadbuffer)
     bl = Point(90,100)
     tr = bl + Point(160,90)*2.87
@@ -71,7 +72,7 @@ drawing.InitDrawing()
 #a.SetVertices(Point(0,0), Point(1000,1000), 1000)
 
 while not done:
-    globals.time = t = pygame.time.get_ticks()*0.5
+    globals.time = t = pygame.time.get_ticks()*globals.tick_factor*0.001
     clock.tick(60)
 
     if t - last > 1000:

@@ -398,11 +398,11 @@ class GameView(ui.RootElement):
                              self.keypad_pressed)
 
         self.scan_button = ui.ImageBoxButton(globals.screen_root,
-                                             Point(0.3,0.1),
+                                             Point(0.45,0.15),
                                              ('button_up_..png','button_down_..png'),
                                              lambda a,b,c: self.start_scan())
         self.stabalise_button = ui.ImageBoxButton(globals.screen_root,
-                                                  Point(0.35,0.1),
+                                                  Point(0.47,0.15),
                                                   ('button_up_..png','button_down_..png'),
                                                   lambda a,b,c: self.hit_stabalise())
 
@@ -413,6 +413,24 @@ class GameView(ui.RootElement):
         self.overlay = drawing.Quad(globals.colour_tiles)
         self.overlay.SetVertices(Point(0,0), globals.screen_abs, 10000)
         self.overlay.SetColour(self.no_overlay)
+        bl = Point(0.278,0.106)
+        tr = bl + Point(0.08,0.08)
+        self.bearing_text = ui.TextBox(parent = globals.screen_root,
+                                       bl     = bl         ,
+                                       tr     = tr         ,
+                                       text   = '---.-',
+                                       textType = drawing.texture.TextTypes.SCREEN_RELATIVE,
+                                       colour = (0,1,0,1),
+                                       scale  = 8)
+        bl = Point(0.278,0.061)
+        tr = bl + Point(0.08,0.08)
+        self.fuse_text = ui.TextBox(parent = globals.screen_root,
+                                    bl     = bl         ,
+                                    tr     = tr         ,
+                                    text   = '---.-',
+                                    textType = drawing.texture.TextTypes.SCREEN_RELATIVE,
+                                    colour = (0,1,0,1),
+                                    scale  = 8)
 
     def keypad_pressed(self, n):
         print 'kp',n
@@ -764,6 +782,12 @@ class GameView(ui.RootElement):
 
     def set_firing_solution(self, angle, delay):
         print 'set firing solution', angle, delay
+        self.firing_solution = (angle, delay)
+        angle_degrees = 180*angle/math.pi
+        self.bearing_text.SetText('%05.1f' % angle_degrees)
+        delay_seconds = delay/globals.tick_factor
+        self.fuse_text.SetText('%05.1f' % delay_seconds)
+
         self.launch_missile( Objects.PLAYER, angle, delay )
 
     def GameOver(self):
