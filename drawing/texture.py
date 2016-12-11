@@ -153,6 +153,9 @@ class TextureAtlas(object):
     def TextureSubimage(self,name):
         return self.Subimage(os.path.join(globals.dirs.sprites,name))
 
+    def TextureUiSubimage(self,name):
+        return self.Subimage(os.path.join(globals.dirs.ui,name))
+
     def TextureTextureSubimage(self,name):
         return self.Subimage(os.path.join(globals.dirs.textures,name))
 
@@ -259,7 +262,7 @@ class TextManager(object):
         return out
 
     def Draw(self):
-        glLoadIdentity()
+        #glLoadIdentity()
         opengl.DrawAll(self.quads,self.atlas.texture)
 
     def Purge(self):

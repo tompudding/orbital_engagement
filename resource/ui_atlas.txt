@@ -1,0 +1,4 @@
+resource/ui/button_down.png:resource/ui_atlas_0.png:0:52.0:13:12
+resource/ui/button_down_1.png:resource/ui_atlas_0.png:13:52.0:13:12
+resource/ui/button_up.png:resource/ui_atlas_0.png:26:52.0:13:12
+resource/ui/button_up_1.png:resource/ui_atlas_0.png:39:52.0:13:12

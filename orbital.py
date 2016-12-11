@@ -48,7 +48,7 @@ def Init():
     screen = pygame.display.set_mode((w,h),pygame.OPENGL|pygame.DOUBLEBUF)
     pygame.display.set_caption('Orbital Engagement')
 
-    drawing.Init(globals.screen.x,globals.screen.y,(globals.screen))
+    drawing.Init(globals.screen_abs.x,globals.screen_abs.y,(globals.screen))
 
     globals.backdrop_texture = drawing.texture.Texture('screen.png')
     globals.screen.backdrop = drawing.Quad(globals.backdrop_buffer, tc=drawing.constants.full_tc)
@@ -83,12 +83,13 @@ while not done:
 
     globals.current_view.Update(t)
     globals.current_view.Draw()
-    globals.screen_root.Draw()
 
     drawing.EndCrt()
     globals.text_manager.Draw()
     drawing.DrawAll( globals.backdrop_buffer, globals.backdrop_texture )
+    globals.screen_root.Draw()
     pygame.display.flip()
+
 
     eventlist = pygame.event.get()
     for event in eventlist:
@@ -117,13 +118,13 @@ while not done:
             if event.type == pygame.MOUSEMOTION:
                 globals.mouse_screen = Point(event.pos[0],globals.screen_abs[1]-event.pos[1])
                 rel = Point(event.rel[0],-event.rel[1])
-                handled = globals.screen_root.MouseMotion(pos,rel,False)
+                handled = globals.screen_root.MouseMotion(globals.mouse_screen,rel,False)
                 if handled:
                     globals.current_view.CancelMouseMotion()
-                globals.current_view.MouseMotion(pos,rel,True if handled else False)
+                globals.current_view.MouseMotion(globals.mouse_screen,rel,True if handled else False)
             elif (event.type == pygame.MOUSEBUTTONDOWN):
                 for layer in globals.screen_root,globals.current_view:
-                    handled,dragging = layer.MouseButtonDown(pos,event.button)
+                    handled,dragging = layer.MouseButtonDown(globals.mouse_screen,event.button)
                     if handled and dragging:
                         globals.dragging = dragging
                         break
@@ -132,7 +133,7 @@ while not done:
 
             elif (event.type == pygame.MOUSEBUTTONUP):
                 for layer in globals.screen_root,globals.current_view:
-                    handled,dragging = layer.MouseButtonUp(pos,event.button)
+                    handled,dragging = layer.MouseButtonUp(globals.mouse_screen,event.button)
                     if handled and not dragging:
                         globals.dragging = None
                     if handled:

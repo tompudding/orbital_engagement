@@ -302,8 +302,8 @@ class UIRoot(RootElement):
             item.Draw()
 
         #For ui textures if we need them
-        #drawing.ResetState()
-        #drawing.DrawAll(globals.screen_texture_buffer,globals.ui_atlas.texture)
+        drawing.ResetState()
+        drawing.DrawAll(globals.ui_buffer,globals.ui_atlas.texture)
 
     def Update(self,t):
         #Would it be faster to make a list of items to remove and then remove them, rather than build a new list?
@@ -455,6 +455,73 @@ class Box(UIElement):
 
 class HoverableBox(Box,HoverableElement):
     pass
+
+class ImageBox(Box):
+    def __init__(self,parent,pos,texture_name,buffer=None,level = None):
+        try:
+            self.texture_normal, self.texture_depressed = texture_name
+        except ValueError:
+            self.texture_normal, self.texture_depressed = (texture_name, texture_name)
+
+        self.tc_normal = globals.ui_atlas.TextureUiCoords(self.texture_normal)
+        self.tc_depressed = globals.ui_atlas.TextureUiCoords(self.texture_depressed)
+
+        self.size_pixels = globals.ui_atlas.TextureUiSubimage(self.texture_normal).size
+        tr = pos + parent.GetRelative(self.size_pixels * globals.scale)
+
+        super(Box,self).__init__(parent,pos,tr)
+        if buffer == None:
+            buffer = globals.ui_buffer
+
+        self.quad = drawing.Quad(buffer)
+
+        self.extra_level = 0 if level == None else level
+        self.quad.SetVertices(self.absolute.bottom_left,
+                              self.absolute.top_right,
+                              self.level + self.extra_level)
+        self.quad.SetTextureCoordinates(self.tc_normal)
+        self.Enable()
+
+class ImageBoxButton(ImageBox):
+    def __init__(self,
+                 parent,
+                 pos,
+                 texture_name,
+                 callback,
+                 buffer=None,
+                 level=None):
+        self.callback = callback
+        super(ImageBoxButton,self).__init__(parent,pos,texture_name,buffer,level)
+        self.root.RegisterUIElement(self)
+        #self.registered = False
+        #self.Enable()
+
+    def SetPos(self,pos):
+        #FIXME: This is shit. I can't be removing and adding every frame
+        #reregister = self.enabled
+        #if reregister:
+        #    self.root.RemoveUIElement(self)
+        print 'snark'
+        super(ImageBoxButton,self).SetPos(pos)
+        #self.SetVertices()
+        #if reregister:
+        #    self.root.RegisterUIElement(self)
+
+
+    def Depress(self, pos):
+        self.quad.SetTextureCoordinates(self.tc_depressed)
+
+    def Undepress(self):
+        self.quad.SetTextureCoordinates(self.tc_normal)
+
+    def Delete(self):
+        self.border.Delete()
+        super(ImageBoxButton,self).Delete()
+
+    def OnClick(self,pos,button):
+        if self.callback:
+            self.callback(self,pos,button)
+
 
 class TextBox(UIElement):
     """ A Screen-relative text box wraps text to a given size """

@@ -178,6 +178,7 @@ class GameView(ui.RootElement):
 
     def __init__(self):
         self.atlas = globals.atlas = drawing.texture.TextureAtlas('tiles_atlas_0.png','tiles_atlas.txt')
+        globals.ui_atlas = drawing.texture.TextureAtlas('ui_atlas_0.png','ui_atlas.txt',extra_names=False)
         self.game_over = False
         #pygame.mixer.music.load('music.ogg')
         #self.music_playing = False
@@ -232,7 +233,28 @@ class GameView(ui.RootElement):
 
         self.scan_start = None
         self.move_direction = Point(0,0)
+        self.console_rows = []
+        for i in xrange(9):
+            bl = Point(0.0328125,0.0395) - Point(0,0.015*i)
+            tr = bl + Point(0.153,0.18)
+            box = ui.TextBox(parent = globals.screen_root,
+                             bl     = bl         ,
+                             tr     = tr         ,
+                             text   = 'test %d a b c d e f g h' % i ,
+                             textType = drawing.texture.TextTypes.SCREEN_RELATIVE,
+                             colour = (0,1,0,1),
+                             scale  = 4)
+
+
+        self.test_button = ui.ImageBoxButton(globals.screen_root,
+                                             Point(0.2,0.1),
+                                             ('button_up_1.png','button_down_1.png'),
+                                             self.callback_test)
+
         self.StartMusic()
+
+    def callback_test(self, caller, pos, button):
+        print 'click'
 
     def fill_state(self):
         try:

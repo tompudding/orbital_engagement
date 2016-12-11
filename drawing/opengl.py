@@ -247,7 +247,7 @@ def EndCrt():
     crt_shader.Use()
     glUniform1f(crt_shader.locations.global_time, globals.time/1000.0)
     crt_buffer.BindForReading(0)
-    glClearColor(0.0, 1.0, 0.0, 1.0)
+    glClearColor(0.0, 0.0, 0.0, 1.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glEnableVertexAttribArray( crt_shader.locations.vertex_data );
     glEnableVertexAttribArray( crt_shader.locations.tc_data );
