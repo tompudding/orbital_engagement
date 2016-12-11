@@ -231,6 +231,7 @@ class GameView(ui.RootElement):
 
         self.ship_body = Body( Point(100, 0), (Point(0,-1).unit_vector()) * orbit_velocity, type=Objects.PLAYER, mass=1 )
         self.enemy_body = Body( Point(120, 120), (Point(1,-1).unit_vector()) * 100, type=Objects.ENEMY, mass=1 )
+
         self.fixed_bodies = [self.sun_body]
         self.missile_images = [Missile() for i in xrange(5)]
         self.initial_state = { Objects.PLAYER : self.ship_body,
@@ -288,6 +289,7 @@ class GameView(ui.RootElement):
                                              lambda a,b,c: self.start_scan())
 
         self.StartMusic()
+        self.stabalise_orbit(Objects.ENEMY)
 
     def keypad_pressed(self, n):
         print 'kp',n
@@ -527,7 +529,6 @@ class GameView(ui.RootElement):
         self.fill_state_obj(obj_type)
 
     def launch_missile(self, source_type, angle, delay):
-        return
         #find a new id for the missile
         for obj_type in Objects.missiles:
             if obj_type not in self.initial_state:
@@ -563,6 +564,24 @@ class GameView(ui.RootElement):
         end = globals.time + self.explosion_duration
         pos = p
         self.explosions.append( Explosion(self.explosion_line_buffer, start, end, pos, self.explosion_radius) )
+
+    def stabalise_orbit(self, obj_type):
+        body = self.initial_state[obj_type]
+        r = body.pos.length()
+        print r
+        #Which direction? We want the component of the current velocity in the direction of the radius tangent
+        tangent = body.pos.unit_vector().Rotate(math.pi/2)
+
+        dot = (tangent * body.velocity)
+        dot = dot.x + dot.y
+
+        if dot > 0:
+            mul = 1
+        else:
+            mul = -1
+        print dot,mul
+
+        body.velocity = tangent * (math.sqrt(G * self.sun_body.mass / (r * globals.pixels_to_units))) * mul
 
     def start_scan(self):
         #The player has started a scan, start drawing the circle
@@ -623,5 +642,9 @@ class GameView(ui.RootElement):
                 pygame.mixer.music.set_volume(1)
         if key == pygame.K_SPACE:
             self.start_scan()
+        if key == pygame.K_RETURN:
+            self.stabalise_orbit(Objects.PLAYER)
+        if key == pygame.K_RETURN:
+            self.enemy.locked = True
         self.mode.KeyUp(key)
 
