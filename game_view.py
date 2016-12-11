@@ -508,8 +508,8 @@ class GameView(ui.RootElement):
                                                   lambda a,b,c: self.hit_stabalise())
 
         self.manual_button = ui.ImageBoxButton(globals.screen_root,
-                                               Point(0.275,0.07),
-                                               ('button_up_..png','button_down_..png'),
+                                               Point(0.3,0.06),
+                                               ('toggle_off.png','toggle_on.png'),
                                                lambda a,b,c: self.manual_firing())
 
         self.StartMusic()
