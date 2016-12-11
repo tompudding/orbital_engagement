@@ -222,7 +222,7 @@ class GameView(ui.RootElement):
         self.fill_state()
         #skip titles for development of the main game
         #self.mode = modes.Titles(self)
-        self.viewpos = Point(-640,-360)
+        self.viewpos = Point(-320,-180)
         self.temp_bodies = []
         self.last = None
         self.detonation_times = {}
@@ -288,7 +288,7 @@ class GameView(ui.RootElement):
         drawing.ResetState()
 
         #drawing.Translate(-400,-400,0)
-        s = 2.0
+        s = 1.0
         drawing.Scale(s,s,1)
         drawing.Translate(-self.viewpos.x/s,-self.viewpos.y/s,0)
 

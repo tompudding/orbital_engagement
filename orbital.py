@@ -33,13 +33,16 @@ def Init():
     globals.temp_mouse_light      = drawing.QuadBuffer(16)
     globals.colour_tiles          = drawing.QuadBuffer(131072)
     globals.line_buffer           = drawing.LineBuffer(131072)
+    globals.screen_quadbuffer     = drawing.QuadBuffer(16)
+    globals.screen.full_quad      = drawing.Quad(globals.screen_quadbuffer)
+    globals.screen.full_quad.SetVertices(Point(0,0),globals.screen,0.01)
 
     globals.dirs = globals.types.Directories('resource')
 
     pygame.init()
     screen = pygame.display.set_mode((w,h),pygame.OPENGL|pygame.DOUBLEBUF)
     pygame.display.set_caption('Orbital Engagement')
-    drawing.Init(globals.screen.x,globals.screen.y)
+    drawing.Init(globals.screen.x,globals.screen.y,(globals.screen))
 
     globals.text_manager = drawing.texture.TextManager()
 
@@ -58,7 +61,7 @@ drawing.InitDrawing()
 #a.SetVertices(Point(0,0), Point(1000,1000), 1000)
 
 while not done:
-    globals.time = t = pygame.time.get_ticks()*5
+    globals.time = t = pygame.time.get_ticks()*0.5
     clock.tick(60)
 
     if t - last > 1000:

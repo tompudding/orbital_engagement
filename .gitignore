@@ -1,0 +1,5 @@
+*.pyc
+*~
+Makefile
+resource/sprites
+resource/ui
