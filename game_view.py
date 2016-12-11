@@ -229,6 +229,8 @@ class GameView(ui.RootElement):
         self.sun = Sun()
         self.ship = Ship()
         self.enemy = Enemy()
+        self.grid = ui.Grid(self,Point(-1,-1),Point(1,1),Point(40,40))
+        self.grid.Enable()
         self.sun_body  = FixedBody( pos=Point(0,0), velocity=Point(0,0), type=Objects.SUN, mass=100000000 )
         self.sun.set_vertices(self.sun_body.pos)
         orbit_velocity = (math.sqrt(G * self.sun_body.mass / (100 * globals.pixels_to_units)))

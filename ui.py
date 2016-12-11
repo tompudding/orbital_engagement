@@ -453,6 +453,61 @@ class Box(UIElement):
         super(Box,self).MakeUnselectable()
         self.quad.SetColour(self.unselectable_colour)
 
+
+class Grid(UIElement):
+    """spacing is absolute"""
+    def __init__(self,parent,pos,tr,spacing,colour = (0.1,0.1,0.1,1)):
+        super(Grid,self).__init__(parent,pos,tr)
+        self.lines = []
+        start = self.GetAbsolute(pos)
+        end   = self.GetAbsolute(tr)
+        skip  = spacing
+        while start.y < end.y:
+            #Add horizontal lines
+            new_line = drawing.Line(globals.line_buffer)
+            line_end = Point(end.x,start.y)
+            new_line.SetVertices(start,line_end,drawing.constants.DrawLevels.grid)
+            self.lines.append(new_line)
+            start.y += skip.y
+        start = self.GetAbsolute(pos)
+        while start.x < end.x:
+            #Add vertical lines
+            new_line = drawing.Line(globals.line_buffer)
+            line_end = Point(start.x,end.y)
+            new_line.SetVertices(start,line_end,drawing.constants.DrawLevels.grid)
+            self.lines.append(new_line)
+            start.x += skip.x
+        self.SetColour(colour)
+        self.Disable()
+
+    def Passable(self):
+        return True
+
+    def Delete(self):
+        super(Grid,self).Delete()
+        for line in self.lines:
+            line.Delete()
+
+    def Disable(self):
+        if self.enabled:
+            for line in self.lines:
+                lines.Disable()
+        super(Grid,self).Disable()
+
+    def Enable(self):
+        if not self.enabled:
+            for line in self.lines:
+                line.Enable()
+        super(Grid,self).Enable()
+
+    def SetColour(self,colour):
+        self.colour = colour
+
+        for line in self.lines:
+            line.SetColour(self.colour)
+
+
+
 class HoverableBox(Box,HoverableElement):
     pass
 
