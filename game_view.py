@@ -369,7 +369,7 @@ class GameView(ui.RootElement):
         #self.mode = modes.Titles(self)
         self.viewpos = Viewpos(Point(-320,-180))
         self.dragging = None
-        self.zoom = 0.65
+        self.zoom = 1
         self.zooming = None
         self.temp_bodies = []
         self.last = None
