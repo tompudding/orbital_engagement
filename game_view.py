@@ -303,6 +303,66 @@ class Keypad(object):
                                        lambda a,b,c,n=char: callback(n))
             self.buttons.append(button)
 
+
+class Console(object):
+    char_duration = 30
+    def __init__(self, parent, pos):
+        self.rows = []
+        self.parent = parent
+        for i in xrange(9):
+            bl = pos - Point(0,0.015*i)
+            tr = bl + Point(0.153,0.18)
+            box = ui.TextBox(parent = globals.screen_root,
+                             bl     = bl         ,
+                             tr     = tr         ,
+                             text   = ' '  ,
+                             textType = drawing.texture.TextTypes.SCREEN_RELATIVE,
+                             colour = (0,1,0,1),
+                             scale  = 4)
+            self.rows.append(box)
+        self.width = 22
+        self.pos = Point(0,0)
+        self.buffer = []
+        self.last = globals.time
+
+    def add_char(self, char):
+        if self.pos.x < self.width:
+            text = ''.join(self.rows[self.pos.y].text)
+            text = [c for c in text.ljust(self.width)[:self.width]]
+            text[self.pos.x] = char
+            self.rows[self.pos.y].SetText(''.join(text))
+
+        self.pos.x += 1
+        if self.pos.x >= self.width:
+            self.pos.x = 0
+            self.pos.y += 1
+        if self.pos.y >= len(self.rows):
+            #move everything up one
+            self.pos.y -= 1
+            for i in xrange(len(self.rows) - 1):
+                self.rows[i].SetText(self.rows[i+1].text)
+            self.rows[len(self.rows) - 1].SetText(' ')
+
+    def add_text(self, line, duration=None):
+        if duration is None:
+            duration = self.char_duration
+        self.buffer.extend( [(c,globals.time + i*duration) for i,c in enumerate(line)] )
+        print self.buffer
+
+    def update(self):
+
+        i = -1
+        for i in xrange(len(self.buffer)):
+            c,t = self.buffer[i]
+            if t < globals.time:
+                self.add_char(c)
+            else:
+                break
+        else:
+            self.buffer = []
+
+        self.buffer = self.buffer[i:]
+
 class GameView(ui.RootElement):
     step_time = 500
     trail_age = 60000.0
@@ -381,17 +441,7 @@ class GameView(ui.RootElement):
 
         self.scan_start = None
         self.move_direction = Point(0,0)
-        self.console_rows = []
-        for i in xrange(9):
-            bl = Point(0.0328125,0.0395) - Point(0,0.015*i)
-            tr = bl + Point(0.153,0.18)
-            box = ui.TextBox(parent = globals.screen_root,
-                             bl     = bl         ,
-                             tr     = tr         ,
-                             text   = ' '  ,
-                             textType = drawing.texture.TextTypes.SCREEN_RELATIVE,
-                             colour = (0,1,0,1),
-                             scale  = 4)
+        self.console = Console(self, Point(0.0328125,0.0395) )
 
         self.keypad = Keypad(globals.screen_root,
                              Point(0.2,0.075),
@@ -564,6 +614,7 @@ class GameView(ui.RootElement):
                     new_explosions.append(exp)
             self.explosions = new_explosions
 
+        self.console.update()
 
         line_update = False
         if self.last is None:
@@ -606,7 +657,7 @@ class GameView(ui.RootElement):
             distance = (self.initial_state[Objects.PLAYER].pos - self.initial_state[Objects.ENEMY].pos).length()
             if distance > self.scan_radius*1.4:
                 self.lose_lock(self.enemy)
-                self.reset_line(Objects.ENEMY)
+
 
         if self.scan_start:
             partial = globals.time - self.scan_start
@@ -719,6 +770,9 @@ class GameView(ui.RootElement):
     def hit_stabalise(self):
         self.finish_stabalising = globals.time + self.stabalise_duration
         self.disabled = True
+        if self.enemy.locked:
+            self.lose_lock(self.enemy)
+
         self.overlay.SetColour(self.disabled_colour)
 
     def stabalise_orbit(self, obj_type):
@@ -786,9 +840,11 @@ class GameView(ui.RootElement):
             self.firing_solution = None
             self.bearing_text.SetText('---.-')
             self.fuse_text.SetText('---.-')
+        self.reset_line(Objects.ENEMY)
 
     def set_firing_solution(self, angle, delay):
         print 'set firing solution', angle, delay
+        self.console.add_text('set firing solution a beep a boop a snoop')
         self.firing_solution = (angle, delay)
         angle_degrees = 180*angle/math.pi
         self.bearing_text.SetText('%05.1f' % angle_degrees)
