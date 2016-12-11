@@ -208,6 +208,10 @@ class GameView(ui.RootElement):
     scan_radius = 150
     explosion_radius = 20
     explosion_duration = 125
+    stabalise_duration = 2000
+    no_overlay = (0,0,0,0)
+    disabled_colour = (0,0,0,0.5)
+    alert_colour = (1,0,0,0.5)
 
     def __init__(self):
         self.atlas = globals.atlas = drawing.texture.TextureAtlas('tiles_atlas_0.png','tiles_atlas.txt')
@@ -287,9 +291,18 @@ class GameView(ui.RootElement):
                                              Point(0.3,0.1),
                                              ('button_up_..png','button_down_..png'),
                                              lambda a,b,c: self.start_scan())
+        self.stabalise_button = ui.ImageBoxButton(globals.screen_root,
+                                                  Point(0.35,0.1),
+                                                  ('button_up_..png','button_down_..png'),
+                                                  lambda a,b,c: self.hit_stabalise())
 
         self.StartMusic()
         self.stabalise_orbit(Objects.ENEMY)
+        self.finish_stabalising = None
+        self.disabled = False
+        self.overlay = drawing.Quad(globals.colour_tiles)
+        self.overlay.SetVertices(Point(0,0), globals.screen_abs, 10000)
+        self.overlay.SetColour(self.no_overlay)
 
     def keypad_pressed(self, n):
         print 'kp',n
@@ -368,10 +381,12 @@ class GameView(ui.RootElement):
         drawing.LineWidth(1)
         drawing.DrawNoTexture(globals.line_buffer)
 
-        drawing.DrawNoTexture(globals.colour_tiles)
         drawing.DrawAll(globals.quad_buffer,self.atlas.texture)
 
         #drawing.DrawAll(globals.nonstatic_text_buffer,globals.text_manager.atlas.texture)
+
+    def DrawFinal(self):
+        drawing.DrawNoTexture(globals.colour_tiles)
 
     def get_obj_at_time(self, obj_type, target):
         #Get the first one before it
@@ -396,6 +411,11 @@ class GameView(ui.RootElement):
     def Update(self,t):
         if self.mode:
             self.mode.Update(t)
+
+        if self.disabled and globals.time > self.finish_stabalising:
+            self.disabled = False
+            self.overlay.SetColour( self.no_overlay )
+            self.stabalise_orbit(Objects.PLAYER)
 
         #kill missiles in flight
         to_destroy = []
@@ -429,7 +449,7 @@ class GameView(ui.RootElement):
 
                 # except:
                 #     pass
-                if obj_type == Objects.PLAYER:
+                if obj_type == Objects.PLAYER and not self.disabled:
                     #cheat as the sun is at 0,0
                     body = self.initial_state[obj_type]
                     to_sun = body.pos.unit_vector()
@@ -565,10 +585,14 @@ class GameView(ui.RootElement):
         pos = p
         self.explosions.append( Explosion(self.explosion_line_buffer, start, end, pos, self.explosion_radius) )
 
+    def hit_stabalise(self):
+        self.finish_stabalising = globals.time + self.stabalise_duration
+        self.disabled = True
+        self.overlay.SetColour(self.disabled_colour)
+
     def stabalise_orbit(self, obj_type):
         body = self.initial_state[obj_type]
         r = body.pos.length()
-        print r
         #Which direction? We want the component of the current velocity in the direction of the radius tangent
         tangent = body.pos.unit_vector().Rotate(math.pi/2)
 
@@ -585,6 +609,8 @@ class GameView(ui.RootElement):
 
     def start_scan(self):
         #The player has started a scan, start drawing the circle
+        if self.disabled:
+            return
         self.scan_start = globals.time
         self.scan_end = globals.time + self.scan_duration
         self.scan_start_pos = self.initial_state[Objects.PLAYER].pos

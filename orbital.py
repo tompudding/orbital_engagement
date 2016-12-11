@@ -71,7 +71,7 @@ drawing.InitDrawing()
 #a.SetVertices(Point(0,0), Point(1000,1000), 1000)
 
 while not done:
-    globals.time = t = pygame.time.get_ticks()*5
+    globals.time = t = pygame.time.get_ticks()*0.5
     clock.tick(60)
 
     if t - last > 1000:
@@ -88,6 +88,7 @@ while not done:
     globals.text_manager.Draw()
     drawing.DrawAll( globals.backdrop_buffer, globals.backdrop_texture )
     globals.screen_root.Draw()
+    globals.current_view.DrawFinal()
     pygame.display.flip()
 
 
