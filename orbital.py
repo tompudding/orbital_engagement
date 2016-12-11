@@ -17,8 +17,8 @@ def Init():
     globals.tile_scale            = Point(1,1)
     globals.scale                 = Point(2,2)
     globals.screen_abs            = Point(w,h)
-    globals.time_factor           = 0.001
-    globals.pixels_to_units       = 1000.0
+    globals.time_factor           = 0.01
+    globals.pixels_to_units       = 100.0
     globals.units_to_pixels       = 1/globals.pixels_to_units
     globals.music_volume = 0.1
     globals.screen                = globals.screen_abs/globals.scale

@@ -43,7 +43,7 @@ class Body(object):
 
     def acc_due_to_gravity(self, body):
         vector = (self.pos - body.pos) * globals.pixels_to_units
-        return (vector / vector.SquareLength()) * self.mass * G
+        return (vector.unit_vector() / vector.SquareLength()) * self.mass * G
 
     def apply_force_towards(self, target, force):
         vector = ((target.pos - self.pos).unit_vector())
@@ -116,6 +116,8 @@ class Enemy(Ship):
     def __init__(self, *args, **kwargs):
         super(Enemy, self).__init__(*args, **kwargs)
         self.locked = False
+        #Inert like an asteroid
+        self.active = False
 
 class Missile(BodyImage):
     texture_name = 'missile.png'
@@ -223,12 +225,12 @@ class GameView(ui.RootElement):
         self.enemy = Enemy()
         self.sun_body  = FixedBody( pos=Point(0,0), velocity=Point(0,0), type=Objects.SUN, mass=100000000 )
         self.sun.set_vertices(self.sun_body.pos)
-        orbit_velocity = (math.sqrt(G * self.sun_body.mass / (100)))
+        orbit_velocity = (math.sqrt(G * self.sun_body.mass / (100 * globals.pixels_to_units)))
+        #orbit_velocity = 3
         print orbit_velocity
-        orbit_velocity = orbit_velocity*280
-        orbit_velocity = 10000
+
         self.ship_body = Body( Point(100, 0), (Point(0,-1).unit_vector()) * orbit_velocity, type=Objects.PLAYER, mass=1 )
-        self.enemy_body = Body( Point(75, 75), (Point(1,-1).unit_vector()) * 9000, type=Objects.ENEMY, mass=1 )
+        self.enemy_body = Body( Point(120, 120), (Point(1,-1).unit_vector()) * 100, type=Objects.ENEMY, mass=1 )
         self.fixed_bodies = [self.sun_body]
         self.missile_images = [Missile() for i in xrange(5)]
         self.initial_state = { Objects.PLAYER : self.ship_body,
@@ -335,6 +337,17 @@ class GameView(ui.RootElement):
                 state[obj_type] = n
             last = state[obj_type]
 
+        for i in xrange(0, len(self.future_state)):
+            intensity = 1^(i&1)# - ((self.future_state[i][0] - self.future_state[0][0])/period)
+            try:
+                if obj_type in line_colours and (obj_type != Objects.ENEMY or self.enemy.locked):
+                    col = line_colours[obj_type] + (intensity, )
+                    self.future_state[i][1][obj_type].line_seg.SetColour( col )
+                else:
+                    self.future_state[i][1][obj_type].line_seg.Disable()
+            except KeyError:
+                pass
+
     def StartMusic(self):
         pass
         #pygame.mixer.music.play(-1)
@@ -399,6 +412,7 @@ class GameView(ui.RootElement):
             self.explosions = new_explosions
 
 
+        line_update = False
         if self.last is None:
             self.last = globals.time
         else:
@@ -416,10 +430,12 @@ class GameView(ui.RootElement):
                 if obj_type == Objects.PLAYER:
                     #cheat as the sun is at 0,0
                     body = self.initial_state[obj_type]
-                    move_force = body.pos.unit_vector() * self.move_direction * 40
+                    to_sun = body.pos.unit_vector()
+                    parallel = to_sun.Rotate(math.pi*0.25)
+                    move_force = (to_sun*self.move_direction.y + parallel *self.move_direction.x) * 20 * globals.time_factor
 
-                    if body.set_force(move_force):
-                        self.reset_line(obj_type)
+                    body.set_force(move_force)
+                    line_update = True
 
                 n = self.initial_state[obj_type].step(elapsed * globals.time_factor, self.fixed_bodies, line = False)
                 if (obj_type == Objects.ENEMY and not self.enemy.locked):
@@ -429,9 +445,13 @@ class GameView(ui.RootElement):
                     self.object_quads[obj_type].quad.Enable()
                 self.initial_state[obj_type] = n
 
+        if line_update:
+            self.initial_state[Objects.PLAYER].set_force(Point(0,0))
+            self.reset_line( Objects.PLAYER, saved_segs=False)
+
         if self.enemy.locked:
             distance = (self.initial_state[Objects.PLAYER].pos - self.initial_state[Objects.ENEMY].pos).length()
-            if distance > self.scan_radius:
+            if distance > self.scan_radius*1.4:
                 self.enemy.locked = False
                 self.reset_line(Objects.ENEMY)
 
@@ -444,10 +464,11 @@ class GameView(ui.RootElement):
 
         if self.future_state[1][0] < globals.time:
             #Now there's been an update, let's see if we can get a firing solution on the player :)
-            solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
-            if solution is not None:
-                print 'Enemy has firing solution go go go',solution
-                self.launch_missile( Objects.ENEMY, *solution )
+            if self.enemy.active:
+                solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
+                if solution is not None:
+                    print 'Enemy has firing solution go go go',solution
+                    self.launch_missile( Objects.ENEMY, *solution )
             #Kill the line segments that are in the future
             for t,state in self.future_state:
                 for obj_type in Objects.mobile:
@@ -490,14 +511,18 @@ class GameView(ui.RootElement):
         if self.game_over:
             return
 
-    def reset_line(self, obj_type):
+    def reset_line(self, obj_type, saved_segs=True):
         for t, state in self.future_state:
-            state[obj_type].line_seg.Delete()
+            if obj_type in state:
+                state[obj_type].line_seg.Delete()
         for t, state in self.future_state:
-            del state[obj_type]
-        for (t,line_seg) in self.saved_segs[obj_type]:
-            line_seg.Delete()
-        self.saved_segs[obj_type] = []
+            if obj_type in state:
+                del state[obj_type]
+
+        if saved_segs:
+            for (t,line_seg) in self.saved_segs[obj_type]:
+                line_seg.Delete()
+            self.saved_segs[obj_type] = []
 
         self.fill_state_obj(obj_type)
 
