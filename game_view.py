@@ -605,7 +605,7 @@ class GameView(ui.RootElement):
         if self.enemy.locked:
             distance = (self.initial_state[Objects.PLAYER].pos - self.initial_state[Objects.ENEMY].pos).length()
             if distance > self.scan_radius*1.4:
-                self.enemy.locked = False
+                self.lose_lock(self.enemy)
                 self.reset_line(Objects.ENEMY)
 
         if self.scan_start:
@@ -779,6 +779,13 @@ class GameView(ui.RootElement):
             print 'Error grabbing solution'
             return
         self.set_firing_solution( *solution )
+
+    def lose_lock(self, enemy):
+        enemy.locked = False
+        if self.firing_solution:
+            self.firing_solution = None
+            self.bearing_text.SetText('---.-')
+            self.fuse_text.SetText('---.-')
 
     def set_firing_solution(self, angle, delay):
         print 'set firing solution', angle, delay
