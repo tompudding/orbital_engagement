@@ -122,10 +122,10 @@ while not done:
                 handled = globals.screen_root.MouseMotion(globals.mouse_screen,rel,False)
                 if handled:
                     globals.current_view.CancelMouseMotion()
-                globals.current_view.MouseMotion(globals.mouse_screen,rel,True if handled else False)
+                globals.current_view.MouseMotion(pos,rel,True if handled else False)
             elif (event.type == pygame.MOUSEBUTTONDOWN):
                 for layer in globals.screen_root,globals.current_view:
-                    handled,dragging = layer.MouseButtonDown(globals.mouse_screen,event.button)
+                    handled,dragging = layer.MouseButtonDown(pos,event.button)
                     if handled and dragging:
                         globals.dragging = dragging
                         break
