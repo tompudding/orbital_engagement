@@ -260,6 +260,8 @@ def EndCrt():
     glDisableVertexAttribArray( crt_shader.locations.tc_data );
     crt_buffer.Unbind()
     default_shader.Use()
+    glDisable(GL_DEPTH_TEST)
+    glAlphaFunc(GL_GREATER, 0);
     glClear(GL_DEPTH_BUFFER_BIT)
 
 
