@@ -77,8 +77,6 @@ class Body(object):
             return None
         return firing_angle, best_time
 
-
-
 class FixedBody(Body):
     def step(self, gravity_sources):
         #Fixed bodies don't change
@@ -100,16 +98,33 @@ class Sun(BodyImage):
 
 class Ship(BodyImage):
     texture_name = 'ship.png'
-    mass = 1
+    mass = 100
     height = 8000
+
+class Missile(BodyImage):
+    texture_name = 'missile.png'
+    mass = 1
+    height = 8500
 
 class Objects:
     SUN  = 0
     PLAYER = 1
     ENEMY  = 2
-    mobile = [PLAYER, ENEMY]
+    MISSILE1 = 3
+    MISSILE2 = 4
+    MISSILE3 = 5
+    MISSILE4 = 6
+    MISSILE5 = 7
+
+    missiles = [MISSILE1, MISSILE2, MISSILE3, MISSILE4, MISSILE5]
+    mobile = [PLAYER, ENEMY] + missiles
 
 line_colours = { Objects.PLAYER : (0,0,1),
+                 Objects.MISSILE1 : (1,1,1),
+                 Objects.MISSILE2 : (1,1,1),
+                 Objects.MISSILE3 : (1,1,1),
+                 Objects.MISSILE4 : (1,1,1),
+                 Objects.MISSILE5 : (1,1,1),
                  Objects.ENEMY  : (1,0,0) }
 
 class GameView(ui.RootElement):
@@ -117,8 +132,9 @@ class GameView(ui.RootElement):
     trail_age = 60000.0
     trail_fade = 8000.0
     scan_duration = 500.0
-    scan_line_parts = 128
-    scan_radius = 100
+    scan_line_parts = 32
+    scan_radius = 150
+    explosion_radius = 100
 
     def __init__(self):
         self.atlas = globals.atlas = drawing.texture.TextureAtlas('tiles_atlas_0.png','tiles_atlas.txt')
@@ -141,11 +157,18 @@ class GameView(ui.RootElement):
         self.ship_body = Body( Point(100, 0), (Point(0,-1).unit_vector()) * orbit_velocity, type=Objects.PLAYER, mass=1 )
         self.enemy_body = Body( Point(-100, -100), (Point(-1,1).unit_vector()) * 12000, type=Objects.ENEMY, mass=1 )
         self.fixed_bodies = [self.sun_body]
+        self.missile_images = [Missile() for i in xrange(5)]
         self.initial_state = { Objects.PLAYER : self.ship_body,
                                Objects.ENEMY  : self.enemy_body,
                                Objects.SUN    : self.sun_body }
         self.object_quads = { Objects.PLAYER : self.ship,
-                              Objects.ENEMY : self.enemy }
+                              Objects.ENEMY : self.enemy,
+                              Objects.MISSILE1 : self.missile_images[0],
+                              Objects.MISSILE2 : self.missile_images[1],
+                              Objects.MISSILE3 : self.missile_images[2],
+                              Objects.MISSILE4 : self.missile_images[3],
+                              Objects.MISSILE5 : self.missile_images[4],
+                              }
         self.scan_lines = [drawing.Line(globals.line_buffer) for i in xrange(self.scan_line_parts)]
         #set up the state
         self.future_state = []
@@ -157,8 +180,8 @@ class GameView(ui.RootElement):
         self.last = None
 
         self.mode = modes.Combat(self)
-        self.saved_segs = { Objects.PLAYER : [],
-                            Objects.ENEMY : [] }
+        self.saved_segs = { t : [] for t in Objects.mobile }
+
         self.scan_start = None
         self.StartMusic()
 
@@ -210,6 +233,7 @@ class GameView(ui.RootElement):
 
     def Draw(self):
         drawing.ResetState()
+        drawing.LineWidth(3)
         #drawing.Translate(-400,-400,0)
         s = 2.0
         drawing.Scale(s,s,1)
@@ -252,6 +276,8 @@ class GameView(ui.RootElement):
             elapsed = globals.time - self.last
             self.last = globals.time
             for obj_type in Objects.mobile:
+                if obj_type not in self.initial_state:
+                    continue
                 n = self.initial_state[obj_type].step(elapsed * globals.time_factor, self.fixed_bodies, line = False)
                 self.object_quads[obj_type].set_vertices( n.pos )
                 self.initial_state[obj_type] = n
@@ -267,6 +293,8 @@ class GameView(ui.RootElement):
             #Kill the line segments that are in the future
             for t,state in self.future_state:
                 for obj_type in Objects.mobile:
+                    if obj_type not in state:
+                        continue
                     if t > globals.time:
                         state[obj_type].line_seg.Delete()
                     else:
@@ -279,10 +307,10 @@ class GameView(ui.RootElement):
             self.future_state = []
             self.fill_state()
             #Now there's been an update, let's see if we can get a firing solution on the player :)
-            solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], 100 )
+            solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
             if solution is not None:
                 print 'Enemy has firing solution go go go',solution
-
+                self.launch_missile( Objects.ENEMY, *solution )
 
         for obj_type in Objects.mobile:
             new_saved = []
@@ -301,6 +329,22 @@ class GameView(ui.RootElement):
 
         if self.game_over:
             return
+
+    def launch_missile(self, source_type, angle, delay):
+        #find a new id for the missile
+        for obj_type in Objects.missiles:
+            if obj_type not in self.initial_state:
+                #found one
+                break
+        else:
+            print 'gah couldn\'t find space for a new missile'
+            return
+        print 'new missile is',obj_type
+        source = self.initial_state[source_type]
+        v = cmath.rect(20000, angle)
+        velocity = Point(v.real, v.imag)
+        self.initial_state[obj_type] = Body( source.pos, source.velocity + velocity, obj_type, Missile.mass )
+
 
     def start_scan(self):
         #The player has started a scan, start drawing the circle
