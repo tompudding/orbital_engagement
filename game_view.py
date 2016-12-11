@@ -309,7 +309,7 @@ class Keypad(object):
 
 class Console(object):
     char_duration = 30
-    flash_duration = 500
+    flash_duration = 400
     def __init__(self, parent, pos):
         self.rows = []
         self.parent = parent
@@ -358,12 +358,20 @@ class Console(object):
             #Turn it off for now
             self.unflash()
 
-        self.set_char(self.pos, char)
+        if char != '\n':
+            self.set_char(self.pos, char)
 
-        self.pos.x += 1
-        if self.pos.x >= self.width:
-            self.pos.x = 0
+            self.pos.x += 1
+            if self.pos.x >= self.width:
+                self.pos.x = 0
+                self.pos.y += 1
+        else:
             self.pos.y += 1
+            self.pos.x = 0
+            self.last = globals.time
+            if not self.toggle:
+                self.toggle = True
+
         if self.pos.y >= len(self.rows):
             #move everything up one
             self.pos.y -= 1
@@ -376,6 +384,8 @@ class Console(object):
     def add_text(self, line, duration=None):
         if duration is None:
             duration = self.char_duration
+        if not line.endswith('\n'):
+            line = line + '\n'
         self.buffer.extend( [(c,globals.time + i*duration) for i,c in enumerate(line)] )
 
     def update(self):
@@ -895,6 +905,7 @@ class GameView(ui.RootElement):
             self.bearing_text.SetText('---.-')
             self.fuse_text.SetText('---.-')
         self.reset_line(Objects.ENEMY)
+        self.console.add_text('Target lost')
 
     def clear_firing_solution(self):
         #Draw the current firing soltion
@@ -911,7 +922,8 @@ class GameView(ui.RootElement):
         self.clear_firing_solution()
         self.firing_solution_time = globals.time
         if not reacquire:
-            self.console.add_text('set firing solution a beep a boop a snoop')
+            self.console.add_text('Target Locked')
+
         self.firing_solution = (angle, delay)
         angle_degrees = 180*angle/math.pi
         self.bearing_text.SetText('%05.1f' % angle_degrees)
