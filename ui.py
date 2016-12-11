@@ -456,7 +456,7 @@ class Box(UIElement):
 
 class Grid(UIElement):
     """spacing is absolute"""
-    def __init__(self,parent,pos,tr,spacing,colour = (0.1,0.1,0.1,1)):
+    def __init__(self,parent,pos,tr,spacing,colour = (0.05,0.05,0.05,1)):
         super(Grid,self).__init__(parent,pos,tr)
         self.lines = []
         start = self.GetAbsolute(pos)

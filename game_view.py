@@ -122,6 +122,9 @@ class Body(object):
         if last_pos:
             self.line_seg = drawing.Line(globals.line_buffer)
             self.line_seg.SetVertices( last_pos , self.pos, 1000 )
+            intensity = 1
+            col = line_colours[type] + (1, )
+            self.line_seg.SetColour( col )
         self.temp_bodies = []
 
     def step(self, elapsed, gravity_sources, line=True):
@@ -306,6 +309,7 @@ class Keypad(object):
 
 class Console(object):
     char_duration = 30
+    flash_duration = 500
     def __init__(self, parent, pos):
         self.rows = []
         self.parent = parent
@@ -324,13 +328,37 @@ class Console(object):
         self.pos = Point(0,0)
         self.buffer = []
         self.last = globals.time
+        self.toggle = False
+        self.saved_char = ' '
+
+    def flash(self):
+        self.saved_char = self.get_char(self.pos)
+        self.set_char(self.pos, '\x9f')
+
+    def unflash(self):
+        self.set_char(self.pos, self.saved_char)
+        self.saved_char = ' '
+
+    def get_char(self, pos):
+        if pos.x < self.width:
+            text = ''.join(self.rows[pos.y].text)
+            text = [c for c in text.ljust(self.width)[:self.width]]
+            return text[pos.x]
+        return ' '
+
+    def set_char(self, pos, char):
+        if pos.x < self.width:
+            text = ''.join(self.rows[pos.y].text)
+            text = [c for c in text.ljust(self.width)[:self.width]]
+            text[pos.x] = char
+            self.rows[pos.y].SetText(''.join(text))
 
     def add_char(self, char):
-        if self.pos.x < self.width:
-            text = ''.join(self.rows[self.pos.y].text)
-            text = [c for c in text.ljust(self.width)[:self.width]]
-            text[self.pos.x] = char
-            self.rows[self.pos.y].SetText(''.join(text))
+        if self.toggle:
+            #Turn it off for now
+            self.unflash()
+
+        self.set_char(self.pos, char)
 
         self.pos.x += 1
         if self.pos.x >= self.width:
@@ -342,14 +370,25 @@ class Console(object):
             for i in xrange(len(self.rows) - 1):
                 self.rows[i].SetText(self.rows[i+1].text)
             self.rows[len(self.rows) - 1].SetText(' ')
+        if self.toggle:
+            self.flash()
 
     def add_text(self, line, duration=None):
         if duration is None:
             duration = self.char_duration
         self.buffer.extend( [(c,globals.time + i*duration) for i,c in enumerate(line)] )
-        print self.buffer
 
     def update(self):
+        if globals.time - self.last > self.flash_duration:
+            self.last = globals.time
+            if self.toggle:
+                self.toggle = False
+                #turn off thing
+                self.unflash()
+            else:
+                self.toggle = True
+                #turn on thing
+                self.flash()
 
         i = -1
         for i in xrange(len(self.buffer)):
@@ -481,6 +520,8 @@ class GameView(ui.RootElement):
                                     textType = drawing.texture.TextTypes.SCREEN_RELATIVE,
                                     colour = (0,1,0,1),
                                     scale  = 8)
+        self.firing_solution = None
+        self.firing_solution_steps = []
 
     def keypad_pressed(self, n):
         print 'kp',n
@@ -559,7 +600,7 @@ class GameView(ui.RootElement):
 
         drawing.LineWidth(8)
         drawing.DrawNoTexture(self.explosion_line_buffer)
-        drawing.LineWidth(1)
+        drawing.LineWidth(2)
         drawing.DrawNoTexture(globals.line_buffer)
 
         drawing.DrawAll(globals.quad_buffer,self.atlas.texture)
@@ -614,6 +655,10 @@ class GameView(ui.RootElement):
                     new_explosions.append(exp)
             self.explosions = new_explosions
 
+        if self.firing_solution and (globals.time - self.firing_solution_time) > 500 and self.enemy.locked:
+            #reacquire
+            self.lock_on(self.enemy, reacquire=True)
+
         self.console.update()
 
         line_update = False
@@ -642,6 +687,15 @@ class GameView(ui.RootElement):
                     line_update = True
 
                 n = self.initial_state[obj_type].step(elapsed * globals.time_factor, self.fixed_bodies, line = False)
+                if obj_type == Objects.PLAYER and self.firing_solution is not None:
+                    #Draw the current firing soltion
+                    self.clear_firing_solution_steps()
+                    v = cmath.rect(self.missile_speed, self.firing_solution[0])
+                    velocity = Point(v.real, v.imag)
+                    body = Body( body.pos, body.velocity + velocity, Objects.MISSILE1, Missile.mass )
+                    for i in xrange(5):
+                        body = body.step(2000 * globals.time_factor, self.fixed_bodies)
+                        self.firing_solution_steps.append(body)
                 if (obj_type == Objects.ENEMY and not self.enemy.locked):
                     self.object_quads[obj_type].quad.Disable()
                 else:
@@ -825,26 +879,39 @@ class GameView(ui.RootElement):
         for line in self.scan_lines:
             line.SetColour( (0,0,0,0) )
 
-    def lock_on(self, enemy):
+    def lock_on(self, enemy, reacquire=False):
         enemy.locked = True
         #Let's try and grab a firing solution
         solution = self.initial_state[Objects.PLAYER].scan_for_target( self.initial_state[Objects.ENEMY], self.explosion_radius )
         if solution is None:
             print 'Error grabbing solution'
             return
-        self.set_firing_solution( *solution )
+        self.set_firing_solution( *solution, reacquire=reacquire )
 
     def lose_lock(self, enemy):
         enemy.locked = False
         if self.firing_solution:
-            self.firing_solution = None
+            self.clear_firing_solution()
             self.bearing_text.SetText('---.-')
             self.fuse_text.SetText('---.-')
         self.reset_line(Objects.ENEMY)
 
-    def set_firing_solution(self, angle, delay):
+    def clear_firing_solution(self):
+        #Draw the current firing soltion
+        self.firing_solution = None
+        self.clear_firing_solution_steps()
+
+    def clear_firing_solution_steps(self):
+        for body in self.firing_solution_steps:
+            body.line_seg.Delete()
+        self.firing_solution_steps = []
+
+    def set_firing_solution(self, angle, delay, reacquire=False):
         print 'set firing solution', angle, delay
-        self.console.add_text('set firing solution a beep a boop a snoop')
+        self.clear_firing_solution()
+        self.firing_solution_time = globals.time
+        if not reacquire:
+            self.console.add_text('set firing solution a beep a boop a snoop')
         self.firing_solution = (angle, delay)
         angle_degrees = 180*angle/math.pi
         self.bearing_text.SetText('%05.1f' % angle_degrees)
