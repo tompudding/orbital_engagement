@@ -500,11 +500,11 @@ class GameView(ui.RootElement):
 
         self.scan_button = ui.ImageBoxButton(globals.screen_root,
                                              Point(0.45,0.15),
-                                             ('button_up_..png','button_down_..png'),
+                                             ('button_scan.png','button_scan_pressed.png'),
                                              lambda a,b,c: self.start_scan())
         self.stabalise_button = ui.ImageBoxButton(globals.screen_root,
-                                                  Point(0.47,0.15),
-                                                  ('button_up_..png','button_down_..png'),
+                                                  Point(0.45,0.07),
+                                                  ('button_stabalise.png','button_stabalise_pressed.png'),
                                                   lambda a,b,c: self.hit_stabalise())
 
 
@@ -513,7 +513,7 @@ class GameView(ui.RootElement):
                                                      ('toggle_off.png','toggle_on.png'),
                                                      self.manual_firing)
 
-        bl = Point(0.7,0.07)
+        bl = Point(0.73,0.07)
         self.missile_button = ui.ImageBoxToggleButton(globals.screen_root,
                                                       bl + Point(0,0.08),
                                                       ('button_missile.png','button_missile_pressed.png'),
@@ -694,9 +694,15 @@ class GameView(ui.RootElement):
         closest_after = None
         for i, (t, state) in enumerate(self.future_state):
             if t < target:
-                closest_before = state[obj_type]
+                try:
+                    closest_before = state[obj_type]
+                except KeyError:
+                    pass
             if t > target:
-                closest_after = state[obj_type]
+                try:
+                    closest_after = state[obj_type]
+                except KeyError:
+                    pass
                 break
 
         if closest_before is None:
@@ -953,7 +959,7 @@ class GameView(ui.RootElement):
             angle = angles[(i + 1) % len(angles)]
             v = cmath.rect(r, angle)
             p = self.scan_start_pos + Point(v.real, v.imag)
-            if not self.enemy.locked:
+            if not self.enemy.locked or (not self.manual_button.state and not self.firing_solution):
                 d = (p - self.initial_state[Objects.ENEMY].pos).SquareLength()
                 if d < 1000:
                     self.lock_on(self.enemy)
