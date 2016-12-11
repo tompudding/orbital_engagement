@@ -26,6 +26,7 @@ def Init():
     globals.mouse_screen          = Point(0,0)
     globals.quad_buffer           = drawing.QuadBuffer(16384, ui=True)
     globals.screen_texture_buffer = drawing.QuadBuffer(256, ui=True)
+    globals.backdrop_buffer       = drawing.QuadBuffer(16, ui=True)
     globals.ui_buffer             = drawing.QuadBuffer(1024, ui=True)
     globals.nonstatic_text_buffer = drawing.QuadBuffer(131072, ui=True)
     globals.light_quads           = drawing.QuadBuffer(16384)
@@ -34,15 +35,24 @@ def Init():
     globals.colour_tiles          = drawing.QuadBuffer(131072)
     globals.line_buffer           = drawing.LineBuffer(131072)
     globals.screen_quadbuffer     = drawing.QuadBuffer(16)
-    globals.screen.full_quad      = drawing.Quad(globals.screen_quadbuffer)
-    globals.screen.full_quad.SetVertices(Point(0,0),globals.screen,0.01)
+    globals.screen.crt      = drawing.Quad(globals.screen_quadbuffer)
+    bl = Point(90,100)
+    tr = bl + Point(160,90)*2.87
+    globals.screen.crt.SetVertices(bl, tr,0.01)
+
 
     globals.dirs = globals.types.Directories('resource')
+
 
     pygame.init()
     screen = pygame.display.set_mode((w,h),pygame.OPENGL|pygame.DOUBLEBUF)
     pygame.display.set_caption('Orbital Engagement')
+
     drawing.Init(globals.screen.x,globals.screen.y,(globals.screen))
+
+    globals.backdrop_texture = drawing.texture.Texture('screen.png')
+    globals.screen.backdrop = drawing.Quad(globals.backdrop_buffer, tc=drawing.constants.full_tc)
+    globals.screen.backdrop.SetVertices(Point(0,0), globals.screen_abs, 10)
 
     globals.text_manager = drawing.texture.TextManager()
 
@@ -70,11 +80,14 @@ while not done:
 
 
     drawing.NewFrame()
+
     globals.current_view.Update(t)
     globals.current_view.Draw()
     globals.screen_root.Draw()
+
+    drawing.EndCrt()
     globals.text_manager.Draw()
-    drawing.EndFrame()
+    drawing.DrawAll( globals.backdrop_buffer, globals.backdrop_texture )
     pygame.display.flip()
 
     eventlist = pygame.event.get()

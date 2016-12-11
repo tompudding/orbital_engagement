@@ -243,10 +243,11 @@ def NewFrame():
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-def EndFrame():
+def EndCrt():
     crt_shader.Use()
     glUniform1f(crt_shader.locations.global_time, globals.time/1000.0)
     crt_buffer.BindForReading(0)
+    glClearColor(0.0, 1.0, 0.0, 1.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glEnableVertexAttribArray( crt_shader.locations.vertex_data );
     glEnableVertexAttribArray( crt_shader.locations.tc_data );
@@ -255,7 +256,11 @@ def EndFrame():
     glVertexAttribPointer( crt_shader.locations.tc_data, 2, GL_FLOAT, GL_FALSE, 0, drawing.constants.full_tc );
 
     glDrawElements(GL_QUADS,globals.screen_quadbuffer.current_size,GL_UNSIGNED_INT,globals.screen_quadbuffer.indices)
-
+    glDisableVertexAttribArray( crt_shader.locations.vertex_data );
+    glDisableVertexAttribArray( crt_shader.locations.tc_data );
+    crt_buffer.Unbind()
+    default_shader.Use()
+    glClear(GL_DEPTH_BUFFER_BIT)
 
 
 # def SetRenderDimensions(x,y,z):
@@ -309,10 +314,10 @@ def DrawAll(quad_buffer,texture):
     Draw a quadbuffer with with a vertex array, texture coordinate array, and a colour
     array
     """
-    if quad_buffer.is_ui:
-        DrawAllNow(quad_buffer, texture, default_shader)
+    #if quad_buffer.is_ui:
+    DrawAllNow(quad_buffer, texture, default_shader)
         #ui_buffers.Add(quad_buffer,texture)
-        return
+    #    return
     #DrawAllNowNormals(quad_buffer,texture,geom_shader)
 
 def DrawAllNowNormals(quad_buffer,texture,shader):

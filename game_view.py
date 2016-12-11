@@ -39,7 +39,6 @@ class Body(object):
         else:
             changed = True
         self.acc = new_acc
-        print self.acc
         return changed
 
     def acc_due_to_gravity(self, body):
