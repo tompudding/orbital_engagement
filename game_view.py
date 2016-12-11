@@ -308,7 +308,7 @@ class Keypad(object):
 
 
 class Console(object):
-    char_duration = 30
+    char_duration = 10
     flash_duration = 400
     def __init__(self, parent, pos):
         self.rows = []
@@ -330,6 +330,8 @@ class Console(object):
         self.last = globals.time
         self.toggle = False
         self.saved_char = ' '
+        #for text entry
+        self.entering = False
 
     def flash(self):
         self.saved_char = self.get_char(self.pos)
@@ -505,6 +507,11 @@ class GameView(ui.RootElement):
                                                   ('button_up_..png','button_down_..png'),
                                                   lambda a,b,c: self.hit_stabalise())
 
+        self.manual_button = ui.ImageBoxButton(globals.screen_root,
+                                               Point(0.275,0.07),
+                                               ('button_up_..png','button_down_..png'),
+                                               lambda a,b,c: self.manual_firing())
+
         self.StartMusic()
         self.stabalise_orbit(Objects.ENEMY)
         self.finish_stabalising = None
@@ -521,6 +528,7 @@ class GameView(ui.RootElement):
                                        textType = drawing.texture.TextTypes.SCREEN_RELATIVE,
                                        colour = (0,1,0,1),
                                        scale  = 8)
+
         bl = Point(0.278,0.061)
         tr = bl + Point(0.08,0.08)
         self.fuse_text = ui.TextBox(parent = globals.screen_root,
@@ -530,11 +538,45 @@ class GameView(ui.RootElement):
                                     textType = drawing.texture.TextTypes.SCREEN_RELATIVE,
                                     colour = (0,1,0,1),
                                     scale  = 8)
+
         self.firing_solution = None
         self.firing_solution_steps = []
 
     def keypad_pressed(self, n):
-        print 'kp',n
+        #print 'kp',n
+        if not self.console.entering:
+            return
+
+        if n == 'E':
+            self.console.add_char('\n')
+            text = ''.join(self.keypad.buffer)
+            print 'enter',text
+            self.keypad.buffer = []
+            if self.console.entering == 1:
+                try:
+                    manual_bearing = float(text) % 360.0
+                except ValueError:
+                    self.console.add_text('Invalid')
+                    return
+                self.bearing_text.SetText('%05.1f' % manual_bearing)
+                self.manual_bearing = math.pi * (manual_bearing / 180.0)
+                self.console.add_text('Enter fuse time:')
+                self.console.entering = 2
+            else:
+                try:
+                    timer = float(text) % 30.0
+                except ValueError:
+                    self.console.add_text('Invalid')
+                    return
+
+                self.console.add_text('Solution acquired')
+                self.console.entering = False
+                self.set_firing_solution(self.manual_bearing, timer*globals.tick_factor, reacquire=False, manual=True)
+
+
+        else:
+            self.console.add_char(n)
+            self.keypad.buffer.append(n)
 
     def fill_state(self):
         try:
@@ -917,20 +959,32 @@ class GameView(ui.RootElement):
             body.line_seg.Delete()
         self.firing_solution_steps = []
 
-    def set_firing_solution(self, angle, delay, reacquire=False):
+    def set_firing_solution(self, angle, delay, reacquire=False, manual=False):
         print 'set firing solution', angle, delay
         self.clear_firing_solution()
         self.firing_solution_time = globals.time
-        if not reacquire:
+        if not manual and not reacquire:
             self.console.add_text('Target Locked')
 
         self.firing_solution = (angle, delay)
         angle_degrees = 180*angle/math.pi
         self.bearing_text.SetText('%05.1f' % angle_degrees)
         delay_seconds = delay/globals.tick_factor
+        print delay_seconds
         self.fuse_text.SetText('%05.1f' % delay_seconds)
 
         #self.launch_missile( Objects.PLAYER, angle, delay )
+
+    def manual_firing(self):
+        print 'manual'
+        if self.console.entering:
+            self.console.entering = False
+            self.console.add_text('\ncancelled')
+            return
+
+        self.console.add_text('Enter bearing:')
+        self.console.entering = 1
+        self.keypad.buffer = []
 
     def GameOver(self):
         self.game_over = True
