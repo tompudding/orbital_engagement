@@ -166,6 +166,31 @@ class Explosion(object):
             return False
         return True
 
+class Keypad(object):
+    positions = {'0'  : Point(0,0),
+                 '.'  : Point(1,0),
+                 'E' : Point(2,0),
+                 '1'  : Point(0,1),
+                 '2'  : Point(1,1),
+                 '3'  : Point(2,1),
+                 '4'  : Point(0,2),
+                 '5'  : Point(1,2),
+                 '6'  : Point(2,2),
+                 '7'  : Point(0,3),
+                 '8'  : Point(1,3),
+                 '9'  : Point(2,3)}
+    unit_vector = Point(28,26)
+
+    def __init__(self, parent, bl, callback):
+        uv = parent.GetRelative(self.unit_vector)
+        self.buttons = []
+        for char, pos in self.positions.iteritems():
+            button = ui.ImageBoxButton(parent,
+                                       bl + uv * pos,
+                                       ('button_up_%s.png' % char,'button_down_%s.png' % char),
+                                       lambda a,b,c,n=char: callback(n))
+            self.buttons.append(button)
+
 class GameView(ui.RootElement):
     step_time = 500
     trail_age = 60000.0
@@ -245,16 +270,14 @@ class GameView(ui.RootElement):
                              colour = (0,1,0,1),
                              scale  = 4)
 
-
-        self.test_button = ui.ImageBoxButton(globals.screen_root,
-                                             Point(0.2,0.1),
-                                             ('button_up_1.png','button_down_1.png'),
-                                             self.callback_test)
+        self.keypad = Keypad(globals.screen_root,
+                             Point(0.2,0.075),
+                             self.keypad_pressed)
 
         self.StartMusic()
 
-    def callback_test(self, caller, pos, button):
-        print 'click'
+    def keypad_pressed(self, n):
+        print 'kp',n
 
     def fill_state(self):
         try:
