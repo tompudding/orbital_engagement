@@ -120,11 +120,39 @@ class Objects:
     mobile = [PLAYER, ENEMY] + missiles
 
 line_colours = { Objects.PLAYER : (0,0,1),
-                 #Objects.MISSILE1 : (0.5,0.5,0.5),
+                 Objects.MISSILE1 : (0.2,0.2,0.2),
                  Objects.ENEMY  : (1,0,0) }
 
-#for t in Objects.missiles:
-#    line_colours[t] = line_colours[Objects.MISSILE1]
+for t in Objects.missiles:
+    line_colours[t] = line_colours[Objects.MISSILE1]
+
+class Explosion(object):
+    line_segs = 32
+    def __init__(self, line_buffer, start, end, pos, radius):
+        self.lines = [drawing.Line(line_buffer) for i in xrange(self.line_segs)]
+        self.start = start
+        self.radius = radius
+        self.end = end
+        self.duration = float(end - start)
+        self.pos = pos
+
+    def Update(self):
+        partial = (globals.time - self.start) / self.duration
+        r = self.radius * partial
+        angles = [i*math.pi*2/self.line_segs for i in xrange(self.line_segs)]
+        v = cmath.rect(r, angles[0])
+        last = self.pos + Point(v.real, v.imag)
+        for i in xrange(self.line_segs):
+            angle = angles[(i + 1) % len(angles)]
+            v = cmath.rect(r, angle)
+            p = self.pos + Point(v.real, v.imag)
+            self.lines[i].SetVertices( last, p, 10000 )
+            last = p
+            intensity = 1 - partial
+            self.lines[i].SetColour( (1,1,1,intensity))
+        if globals.time > self.end:
+            return False
+        return True
 
 class GameView(ui.RootElement):
     step_time = 500
@@ -133,7 +161,8 @@ class GameView(ui.RootElement):
     scan_duration = 500.0
     scan_line_parts = 32
     scan_radius = 150
-    explosion_radius = 10
+    explosion_radius = 20
+    explosion_duration = 125
 
     def __init__(self):
         self.atlas = globals.atlas = drawing.texture.TextureAtlas('tiles_atlas_0.png','tiles_atlas.txt')
@@ -144,6 +173,7 @@ class GameView(ui.RootElement):
         #self.square = drawing.Line(globals.line_buffer)
         #self.square.SetVertices( Point(0,0), Point(1000,1000), 1000)
         #self.square.SetColour( (1,0,0,1) )
+        self.explosion_line_buffer = drawing.LineBuffer(32*Explosion.line_segs)
         self.sun = Sun()
         self.ship = Ship()
         self.enemy = Ship()
@@ -183,6 +213,7 @@ class GameView(ui.RootElement):
         self.temp_bodies = []
         self.last = None
         self.detonation_times = {}
+        self.explosions = []
 
         self.mode = modes.Combat(self)
         self.saved_segs = { t : [] for t in Objects.mobile }
@@ -241,14 +272,17 @@ class GameView(ui.RootElement):
 
     def Draw(self):
         drawing.ResetState()
-        drawing.LineWidth(3)
+
         #drawing.Translate(-400,-400,0)
         s = 2.0
         drawing.Scale(s,s,1)
         drawing.Translate(-self.viewpos.x/s,-self.viewpos.y/s,0)
 
-
+        drawing.LineWidth(8)
+        drawing.DrawNoTexture(self.explosion_line_buffer)
+        drawing.LineWidth(3)
         drawing.DrawNoTexture(globals.line_buffer)
+
         drawing.DrawNoTexture(globals.colour_tiles)
         drawing.DrawAll(globals.quad_buffer,self.atlas.texture)
 
@@ -284,6 +318,14 @@ class GameView(ui.RootElement):
                 to_destroy.append(obj_type)
         for obj_type in to_destroy:
             self.destroy_missile(obj_type)
+
+        if self.explosions:
+            new_explosions = []
+            for exp in self.explosions:
+                if exp.Update():
+                    new_explosions.append(exp)
+            self.explosions = new_explosions
+
 
         if self.last is None:
             self.last = globals.time
@@ -378,6 +420,7 @@ class GameView(ui.RootElement):
 
     def destroy_missile(self, obj_type):
         #remove it from the initial_state
+        self.start_explosion( self.initial_state[obj_type].pos )
         del self.initial_state[obj_type]
         del self.detonation_times[obj_type]
         for t,state in self.future_state:
@@ -390,6 +433,11 @@ class GameView(ui.RootElement):
                 seg.Delete()
             self.saved_segs[obj_type] = []
 
+    def start_explosion(self, p):
+        start = globals.time
+        end = globals.time + self.explosion_duration
+        pos = p
+        self.explosions.append( Explosion(self.explosion_line_buffer, start, end, pos, self.explosion_radius) )
 
     def start_scan(self):
         #The player has started a scan, start drawing the circle
