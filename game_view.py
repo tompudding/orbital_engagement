@@ -182,6 +182,7 @@ class Body(object):
             while t < globals.time + period:
                 target = globals.game_view.get_obj_at_time( target_type, t )
                 if target:
+                    #don't get too close to the sun
                     distance = (target.pos - body.pos).length()
                     if distance < min_distance and (t - globals.time) < best_time:
                         best_time = t - globals.time
@@ -189,6 +190,9 @@ class Body(object):
                     #body.apply_force_towards( target, 1 )
 
                 body = body.step(step * globals.time_factor, globals.game_view.fixed_bodies, line = False)
+                if body.pos.length() < 30:
+                    #print 'rejecting path',body.pos.length()
+                    break
                 #self.temp_bodies.append(body)
                 t += step
         # for body in self.temp_bodies:
@@ -1581,6 +1585,7 @@ class GameView(ui.RootElement):
         if self.tutorial == self.tutorial_click_scan:
             self.tutorial()
         #Let's try and grab a firing solution
+        print 'flarp'
         solution = self.initial_state[Objects.PLAYER].scan_for_target( self.initial_state[Objects.ENEMY], self.explosion_radius )
         if solution is None:
             print 'Error grabbing solution'
@@ -1805,8 +1810,7 @@ class GameView(ui.RootElement):
             return
         if key == pygame.K_SPACE:
             self.damage(Objects.PLAYER, 100)
-        if key == pygame.K_RETURN:
-            self.stabalise_orbit(Objects.PLAYER)
+
         if key == pygame.K_RETURN:
             self.lock_on(self.enemy)
         self.mode.KeyUp(key)
