@@ -1497,10 +1497,10 @@ class GameView(ui.RootElement):
         self.fill_state_obj(obj_type)
 
     def arm_weapon(self):
+        globals.sounds.keypad.play()
         if self.selected_weapon is None:
             self.console.add_text('No weapon selected')
             return
-        globals.sounds.keypad.play()
 
         self.arm_start = globals.time
         self.arm_duration = self.weapon_arm_times[self.selected_weapon]
@@ -1511,8 +1511,12 @@ class GameView(ui.RootElement):
         self.console.add_text('Arming...')
 
     def select_weapon(self, state, index):
-        if not state or self.stopped:
+        if self.stopped:
             #don't care
+            return
+
+        if not state:
+            self.selected_weapon = None
             return
 
         if self.selected_weapon is not None and self.selected_weapon != index:
