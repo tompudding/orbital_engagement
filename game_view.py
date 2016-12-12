@@ -309,7 +309,7 @@ class Menu(object):
                                           scale = 12)
             self.level_text.append((selected_button,text))
         self.death_text = ui.TextBox( parent=self.frame,
-                                      bl=Point(0.05,0.75),
+                                      bl=Point(0.3,0.45),
                                       tr=None,
                                       text='YOU DIED',
                                       textType = drawing.texture.TextTypes.GRID_RELATIVE,
@@ -317,13 +317,21 @@ class Menu(object):
                                       scale = 16)
         self.death_text.Disable()
         self.win_text = ui.TextBox( parent=self.frame,
-                                      bl=Point(0.05,0.75),
+                                      bl=Point(0.3,0.45),
                                       tr=None,
                                       text='YOU WON',
                                       textType = drawing.texture.TextTypes.GRID_RELATIVE,
                                       colour = (0.7,0.1,0,1),
                                       scale = 16)
         self.win_text.Disable()
+        self.again_text = ui.TextBox( parent=self.frame,
+                                      bl=Point(0.2,0.3),
+                                      tr=None,
+                                      text='Press fire to play again',
+                                      textType = drawing.texture.TextTypes.GRID_RELATIVE,
+                                      colour = (0,0.7,0,1),
+                                      scale = 8)
+        self.again_text.Disable()
         self.selected = None
         self.splash = False
         self.select(0)
@@ -338,6 +346,7 @@ class Menu(object):
     def show_splash(self, item):
         self.win_text.Disable()
         self.death_text.Disable()
+        self.again_text.Enable()
 
         item.Enable()
         self.splash = item
@@ -349,6 +358,7 @@ class Menu(object):
     def hide_splash(self):
         self.win_text.Disable()
         self.death_text.Disable()
+        self.again_text.Disable()
         self.splash = False
         for a,b in self.level_text:
             a.Enable()
@@ -949,9 +959,6 @@ class GameView(ui.RootElement):
         self.fire_button.disarm()
         self.last = globals.time
 
-
-
-
     def fire(self):
         if self.stopped:
             #hack, this works the menu
@@ -1409,6 +1416,7 @@ class GameView(ui.RootElement):
             self.enemy_health -= amount
             if self.enemy_health <= 0:
                 if self.end_time is None:
+                    self.lose_lock(self.enemy)
                     self.end_time = globals.time
 
     def start_explosion(self, p, radius=None, colour=(1,1,1)):
@@ -1480,6 +1488,8 @@ class GameView(ui.RootElement):
             line.SetColour( (0,0,0,0) )
 
     def lock_on(self, enemy, reacquire=False):
+        if self.enemy_health <= 0:
+            return
         enemy.locked = True
         if self.manual_button.state:
             return
@@ -1697,7 +1707,7 @@ class GameView(ui.RootElement):
         if self.stopped:
             return
         if key == pygame.K_SPACE:
-            self.damage(Objects.ENEMY, 100)
+            self.damage(Objects.PLAYER, 100)
         if key == pygame.K_RETURN:
             self.stabalise_orbit(Objects.PLAYER)
         if key == pygame.K_RETURN:
