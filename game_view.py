@@ -661,6 +661,7 @@ class GameView(ui.RootElement):
         self.sun.set_vertices(self.sun_body.pos)
         self.echoes = []
         self.lock_time = None
+        self.no_auto_target = False
 
         self.initial_data = [
             #For the tutorial the asteroid is just behind the player in the orbit so they don't go out of sync
@@ -717,7 +718,7 @@ class GameView(ui.RootElement):
                     False
                     ),
               },
-            #Level 4 is the asteroid but manual targeting
+            #Level 5 is the asteroid but manual targeting
             { Objects.PLAYER : (
                     Point(90, 0),
                     Point(0,-1) * self.circular_orbit_velocity(120)
@@ -731,7 +732,11 @@ class GameView(ui.RootElement):
             ]
 
         self.intro_text = ['Welcome to the orbital defence simulator private! Get used to this room as it\'s all you\'ll see for the rest of, er, I mean the next few days of, your life.\nClick here to begin',
-                           'b','c','d','e','f'
+                           'There\'s an asteroid nearby. Go get it son',
+                           'Your thrusters have been disabled. Adversity builds character',
+                           'Good news, your thrusters are back. Bad news, the asteroid has missiles',
+                           'Automatic targeting has been disabled, good luck',
+                           'A rogue asteroid with missiles is going crazy. Oh and your targeting is down'
                            ]
 
         self.ship_body = Body( Point(1, 0), Point(0,0), type=Objects.PLAYER, mass=1 )
@@ -789,7 +794,7 @@ class GameView(ui.RootElement):
                                                   lambda a,b,c: self.hit_stabalise())
 
 
-        self.manual_button = ui.ImageBoxToggleButton(globals.screen_root,
+        self.manual_button = ui.ManualButton(globals.screen_root,
                                                      Point(0.3,0.06),
                                                      ('toggle_off.png','toggle_on.png'),
                                                      self.manual_firing)
@@ -928,6 +933,14 @@ class GameView(ui.RootElement):
 
         pos,velocity,active = self.initial_data[level][Objects.ENEMY]
         self.thrusters = False if level == 2 else True
+        #amazing hack to toggle the button to on while stopped
+        self.stopped = False
+        if level in [4,5]:
+            self.manual_button.OnClick(None,None)
+            self.no_auto_target = True
+        else:
+            self.no_auto_target = False
+        self.stopped = True
 
         self.enemy_body.pos = pos.Rotate(rotation)
         self.enemy_body.velocity = velocity.Rotate(rotation)
@@ -967,6 +980,7 @@ class GameView(ui.RootElement):
         for button in self.weapon_buttons:
             if button.state:
                 button.OnClick(None,None,skip_callback=True)
+        self.no_auto_target = False
         if self.manual_button.state:
             self.manual_button.OnClick(None, None, skip_callback=True)
         self.stopped = True
@@ -1566,7 +1580,6 @@ class GameView(ui.RootElement):
             intensity = 1 - partial
             self.scan_lines[i].SetColour( (1,1,0.4,intensity))
 
-
     def end_scan(self):
         self.scan_start = None
         for line in self.scan_lines:
@@ -1613,7 +1626,7 @@ class GameView(ui.RootElement):
         self.firing_solution_steps = []
 
     def set_firing_solution(self, angle, delay, reacquire=False, manual=False):
-        print 'set firing solution', angle, delay
+        #print 'set firing solution', angle, delay
         self.clear_firing_solution()
         self.firing_solution_time = globals.time
         if not manual and not reacquire:
