@@ -953,6 +953,7 @@ class GameView(ui.RootElement):
         for exp in self.explosions:
             exp.Delete()
         self.future_state = []
+        self.viewpos = Viewpos(Point(-320,-180))
 
         #For the menu
         self.fire_button.arm()
