@@ -556,7 +556,6 @@ class ImageBoxButton(ImageBox):
         #reregister = self.enabled
         #if reregister:
         #    self.root.RemoveUIElement(self)
-        print 'snark'
         super(ImageBoxButton,self).SetPos(pos)
         #self.SetVertices()
         #if reregister:
@@ -952,7 +951,6 @@ class FaderTextBox(TextBox):
         #self.bl = (self.absolute.bottom_left - self.absolute.size*1.5).to_int()
         #self.tr = (self.absolute.top_right + self.absolute.size*1.5).to_int()
         self.colour_delay = 0.4
-        #print bl,tr
         self.Enable()
 
     def Enable(self):

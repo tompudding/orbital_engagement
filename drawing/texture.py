@@ -55,7 +55,6 @@ class Texture(object):
         self.width = self.textures[0].width
         self.height = self.textures[0].height
         self.texture = self.textures[0].texture
-        print filename,self.texture
         for i,name in enumerate(('normal_texture','occlude_texture','displacement_texture')):
             try:
                 t = self.textures[i+1].texture

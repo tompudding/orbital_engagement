@@ -1100,7 +1100,7 @@ class GameView(ui.RootElement):
         radius = self.explosion_radius
         if self.arming_weapon == 2:
             radius *= 3
-        print 'fire!',radius
+        self.console.add_text('%s launched' % self.weapon_names[self.arming_weapon])
         self.launch_missile( Objects.PLAYER, *self.firing_solution, radius=radius, probe=self.arming_weapon == 1 )
         self.fire_button.disarm()
         self.arm_progress.SetBarLevel(0)
@@ -1116,18 +1116,14 @@ class GameView(ui.RootElement):
         else:
             self.mode.KeyUp(key)
 
-        #print 'thrust',on,key
-
-
     def keypad_pressed(self, n):
-        #print 'kp',n
+
         if not self.console.entering or self.stopped:
             return
 
         if n == 'E':
             self.console.add_char('\n')
             text = ''.join(self.keypad.buffer)
-            print 'enter',text
             self.keypad.buffer = []
             if self.console.entering == 1:
                 try:
@@ -1402,7 +1398,7 @@ class GameView(ui.RootElement):
 
         if self.future_state[1][0] < globals.time:
             #Now there's been an update, let's see if we can get a firing solution on the player :)
-            if self.enemy.active:
+            if self.enemy.active and self.enemy_health > 0:
                 #If the enemy does not have a lock it needs to try and get one
                 if not self.enemy.has_lock:
                     if self.enemy.scan_start is None:
@@ -1424,7 +1420,6 @@ class GameView(ui.RootElement):
                         if self.enemy.last_launch is None or (globals.time - self.enemy.last_launch) > 2500:
                             solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
                             if solution is not None:
-                                print 'Enemy has firing solution go go go',solution
                                 self.console.add_text('Enemy launch detected')
                                 self.launch_missile( Objects.ENEMY, *solution )
                                 self.enemy.last_launch = globals.time
@@ -1519,9 +1514,7 @@ class GameView(ui.RootElement):
                 #found one
                 break
         else:
-            print 'gah couldn\'t find space for a new missile'
             return
-        print 'new missile is',obj_type,radius
         source = self.initial_state[source_type]
         v = cmath.rect(self.missile_speed, angle)
         velocity = Point(v.real, v.imag)
@@ -1572,14 +1565,15 @@ class GameView(ui.RootElement):
             self.saved_segs[obj_type] = []
 
     def damage(self, obj, amount):
-        print obj,amount
         if obj == Objects.PLAYER:
+            console.add_text('Damage detected')
             self.player_health -= amount
             if self.player_health <= 0:
                 if self.end_time is None:
                     self.end_time = globals.time
         else:
             self.enemy_health -= amount
+            self.console.add_text('Enemy damaged')
             if self.enemy_health <= 0:
                 if self.end_time is None:
                     self.lose_lock(self.enemy)
@@ -1616,7 +1610,6 @@ class GameView(ui.RootElement):
             mul = 1
         else:
             mul = -1
-        print dot,mul
 
         body.velocity = tangent * (math.sqrt(G * self.sun_body.mass / (r * globals.pixels_to_units))) * mul
 
@@ -1668,7 +1661,6 @@ class GameView(ui.RootElement):
         #Let's try and grab a firing solution
         solution = self.initial_state[Objects.PLAYER].scan_for_target( self.initial_state[Objects.ENEMY], self.explosion_radius )
         if solution is None:
-            print 'Error grabbing solution'
             return
         self.set_firing_solution( *solution, reacquire=reacquire )
 
@@ -1693,7 +1685,6 @@ class GameView(ui.RootElement):
         self.firing_solution_steps = []
 
     def set_firing_solution(self, angle, delay, reacquire=False, manual=False):
-        #print 'set firing solution', angle, delay
         self.clear_firing_solution()
         self.firing_solution_time = globals.time
         if not manual and not reacquire:
@@ -1703,7 +1694,6 @@ class GameView(ui.RootElement):
         angle_degrees = 180*angle/math.pi
         self.bearing_text.SetText('%05.1f' % angle_degrees)
         delay_seconds = delay/globals.tick_factor
-        print delay_seconds
         self.fuse_text.SetText('%05.1f' % delay_seconds)
 
         #self.launch_missile( Objects.PLAYER, angle, delay )
@@ -1734,7 +1724,6 @@ class GameView(ui.RootElement):
         #Hax!
         if self.tutorial == self.tutorial_click_screen:
             if pos.x >= 25 and pos.x <= 117 and pos.y >= 27 and pos.y <= 77:
-                print 'click!'
                 self.tutorial()
                 return True,None
 

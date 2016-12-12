@@ -35,7 +35,7 @@ def Init():
     globals.colour_tiles          = drawing.QuadBuffer(131072)
     globals.line_buffer           = drawing.LineBuffer(131072)
     globals.screen_quadbuffer     = drawing.QuadBuffer(16)
-    globals.tick_factor           = 5000
+    globals.tick_factor           = 500
     globals.screen.crt      = drawing.Quad(globals.screen_quadbuffer)
     bl = Point(90,100)
     tr = bl + Point(160,90)*2.87
