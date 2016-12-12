@@ -334,7 +334,7 @@ class Menu(object):
         self.select(new)
 
     def choose(self):
-        globals.game_view.Start()
+        globals.game_view.Reset( self.selected )
 
     def Enable(self):
         self.frame.Enable()
@@ -430,6 +430,14 @@ class Console(object):
         self.saved_char = ' '
         #for text entry
         self.entering = False
+
+    def clear(self):
+        for row in self.rows:
+            row.SetText(' ')
+        self.pos = Point(0,0)
+        self.last = globals.time
+        self.unflash()
+
 
     def flash(self):
         self.saved_char = self.get_char(self.pos)
@@ -545,15 +553,79 @@ class GameView(ui.RootElement):
         self.grid.Enable()
         self.sun_body  = FixedBody( pos=Point(0,0), velocity=Point(0,0), type=Objects.SUN, mass=100000000 )
         self.sun.set_vertices(self.sun_body.pos)
-        orbit_velocity = (math.sqrt(G * self.sun_body.mass / (100 * globals.pixels_to_units)))
-        #orbit_velocity = 3
-        print orbit_velocity
 
-        self.initial_data = { Objects.PLAYER : ( Point(100, 0), (Point(0,-1).unit_vector()) * orbit_velocity ),
-                              Objects.ENEMY  : ( Point(120, 120), (Point(1,-1).unit_vector()) * 100, True ) }
+        self.initial_data = [
+            #For the tutorial the asteroid is just behind the player in the orbit so they don't go out of sync
+            { Objects.PLAYER : (
+                    Point(100, 0),
+                    Point(0,-1) * self.circular_orbit_velocity(100)
+                    ),
+              Objects.ENEMY  : (
+                    Point(100, 0).Rotate(0.1),
+                    Point(0,-1).Rotate(0.1) * self.circular_orbit_velocity(100),
+                    False
+                    ),
+              },
+            #Level 1 has the asteroid a bit further out in an ecliptic orbit
+            { Objects.PLAYER : (
+                        Point(100, 0),
+                        Point(0,-1) * self.circular_orbit_velocity(100)
+                        ),
+              Objects.ENEMY  : (
+                        Point(120, 120),
+                        (Point(1,-1).unit_vector()) * 100,
+                        False )
+              },
+            #Level 2 has the asteroid on the opposite side of the sun
+              { Objects.PLAYER : (
+                    Point(120, 0),
+                    Point(0,-1) * self.circular_orbit_velocity(120)
+                    ),
+                Objects.ENEMY  : (
+                    Point(120, 0).Rotate(0.1),
+                    Point(0,-1).Rotate(math.pi) * self.circular_orbit_velocity(120),
+                    False
+                    ),
+                },
+            #Level 3 has A live fire target on the opposite side of the sun
+            { Objects.PLAYER : (
+                    Point(120, 0),
+                    Point(0,-1) * self.circular_orbit_velocity(120)
+                    ),
+                Objects.ENEMY  : (
+                    Point(120, 0).Rotate(0.1),
+                    Point(0,-1).Rotate(math.pi) * self.circular_orbit_velocity(120),
+                    True
+                    ),
+              },
+            #Level 4 is the asteroid but manual targeting
+            { Objects.PLAYER : (
+                    Point(90, 0),
+                    Point(0,-1) * self.circular_orbit_velocity(120)
+                    ),
+              Objects.ENEMY  : (
+                    Point(120, 0).Rotate(0.1),
+                    Point(0,-1).Rotate(math.pi) * self.circular_orbit_velocity(60),
+                    False
+                    ),
+              },
+            #Level 4 is the asteroid but manual targeting
+            { Objects.PLAYER : (
+                    Point(90, 0),
+                    Point(0,-1) * self.circular_orbit_velocity(120)
+                    ),
+              Objects.ENEMY  : (
+                    Point(120, 0).Rotate(0.1),
+                    Point(0,-1).Rotate(math.pi) * self.circular_orbit_velocity(60),
+                    True
+                    ),
+              }
+            ]
 
-        self.ship_body = Body( Point(100, 0), (Point(0,-1).unit_vector()) * orbit_velocity, type=Objects.PLAYER, mass=1 )
-        self.enemy_body = Body( Point(120, 120), (Point(1,-1).unit_vector()) * 100, type=Objects.ENEMY, mass=1 )
+        self.intro_text = ['a','b','c','d','e']
+
+        self.ship_body = Body( Point(1, 0), Point(0,0), type=Objects.PLAYER, mass=1 )
+        self.enemy_body = Body( Point(1, 0), Point(0,0), type=Objects.ENEMY, mass=1 )
 
         self.fixed_bodies = [self.sun_body]
         self.missile_images = [Missile() for i in xrange(len(Objects.missiles))]
@@ -712,17 +784,22 @@ class GameView(ui.RootElement):
         self.arm_end = None
         self.firing_solution_steps = []
 
-        self.Reset()
+        self.Stop()
 
-    def Reset(self):
+    def circular_orbit_velocity(self, r):
+        return (math.sqrt(G * self.sun_body.mass / (r * globals.pixels_to_units)))
+
+    def Reset(self, level):
         self.Stop()
         #Reset the data
-        pos,velocity = self.initial_data[Objects.PLAYER]
-        self.ship_body.pos = pos
-        self.ship_body.velocity = velocity
-        pos,velcity,active = self.initial_data[Objects.ENEMY]
-        self.enemy_body.pos = pos
-        self.enemy_body.velocity = velocity
+        rotation = random.random()*math.pi*2
+        pos,velocity = self.initial_data[level][Objects.PLAYER]
+        self.ship_body.pos = pos.Rotate(rotation)
+        self.ship_body.velocity = velocity.Rotate(rotation)
+        pos,velcity,active = self.initial_data[level][Objects.ENEMY]
+
+        self.enemy_body.pos = pos.Rotate(rotation)
+        self.enemy_body.velocity = velocity.Rotate(rotation)
         self.enemy_body.active = active
         self.viewpos = Viewpos(Point(-320,-180))
         self.dragging = None
@@ -736,12 +813,13 @@ class GameView(ui.RootElement):
         self.arm_end = None
         self.firing_solution_steps = []
         self.arm_progress.SetBarLevel(0)
-        #self.console.clear()
+        self.console.clear()
+        self.console.add_text(self.intro_text[level])
         self.initial_state = { Objects.PLAYER : self.ship_body,
                                Objects.ENEMY  : self.enemy_body,
                                Objects.SUN    : self.sun_body }
-        #self.Start()
-        self.Stop()
+        self.Start()
+        #self.Stop()
 
     def Stop(self):
         self.stopped = True
@@ -1526,7 +1604,7 @@ class GameView(ui.RootElement):
                 self.music_playing = True
                 pygame.mixer.music.set_volume(1)
         if key == pygame.K_SPACE:
-            self.Reset()
+            self.Stop()
         if self.stopped:
             return
         if key == pygame.K_RETURN:
