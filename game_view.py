@@ -268,6 +268,82 @@ Objects.mobile += Objects.missiles
 for t in Objects.missiles:
     line_colours[t] = line_colours[Objects.MISSILE1]
 
+class Menu(object):
+    def __init__(self, parent):
+        bl = parent.GetRelative(globals.screen/-2.0)
+
+        self.frame = ui.UIElement(parent=parent,
+                                  pos=bl,
+                                  tr=bl*-1
+                                  )
+        self.title = ui.TextBox( parent=self.frame,
+                                 bl=Point(0.05,0.75),
+                                 tr=None,
+                                 text='ORBITAL ENGAGEMENT',
+                                 textType = drawing.texture.TextTypes.GRID_RELATIVE,
+                                 colour = (0,0.7,0,1),
+                                 scale = 16)
+
+        self.level_names = ['0 : Tutorial',
+                            '1 : Asteroid Defence',
+                            '2 : Probes',
+                            '3 : Live Fire',
+                            '4 : Targeting',
+                            '5 : Into the unknown']
+        self.level_text = []
+        pos = 0.6
+        for i,name in enumerate(self.level_names):
+            text = ui.TextBox( parent=self.frame,
+                               bl=Point(0.15,pos -i*0.1),
+                               tr=None,
+                               text=name,
+                               textType = drawing.texture.TextTypes.GRID_RELATIVE,
+                               colour = (0,0.7,0,1),
+                               scale = 12)
+            selected_button = ui.TextBox( parent=self.frame,
+                                          bl=Point(0.10,pos +0.005 -i*0.1),
+                                          tr=None,
+                                          text=' ',
+                                          textType = drawing.texture.TextTypes.GRID_RELATIVE,
+                                          colour = (0,0.7,0,1),
+                                          scale = 12)
+            self.level_text.append((selected_button,text))
+        self.selected = None
+        self.select(0)
+
+    def select(self, n):
+        if n == self.selected:
+            return
+        if self.selected is not None:
+            #Disable the current one
+            self.level_text[self.selected][0].SetText(' ')
+        self.selected = n
+        self.level_text[self.selected][0].SetText('\x9f')
+
+    def key_press(self, key):
+        if key == pygame.K_UP:
+            new = self.selected - 1
+            if new < 0:
+                new = len(self.level_text) - 1
+        elif key == pygame.K_DOWN:
+            new = self.selected + 1
+            if new == len(self.level_text):
+                new = 0
+        else:
+            return
+        self.select(new)
+
+    def choose(self):
+        globals.game_view.Start()
+
+    def Enable(self):
+        self.frame.Enable()
+
+    def Disable(self):
+        self.frame.Disable()
+
+
+
 class Explosion(object):
     line_segs = 32
     def __init__(self, line_buffer, start, end, pos, radius, colour):
@@ -495,6 +571,8 @@ class GameView(ui.RootElement):
         for t in Objects.missiles:
             self.trail_properties[t] = (0,400.0)
 
+        self.menu = Menu(self)
+
         self.scan_lines = [drawing.Line(globals.line_buffer) for i in xrange(self.scan_line_parts)]
         #set up the state
         self.future_state = []
@@ -689,9 +767,13 @@ class GameView(ui.RootElement):
             body.line_seg.Delete()
         for exp in self.explosions:
             exp.Delete()
+        #For the menu
+        self.fire_button.arm()
+        self.menu.Enable()
 
     def Start(self):
         self.stopped = False
+        self.menu.Disable()
         self.sun.quad.Enable()
         self.ship.quad.Enable()
         self.enemy.quad.Enable()
@@ -712,11 +794,14 @@ class GameView(ui.RootElement):
         #Finally the firing solution line
         for body in self.firing_solution_steps:
             body.line_seg.Enable()
+        self.fire_button.disarm()
 
 
 
     def fire(self):
         if self.stopped:
+            #hack, this works the menu
+            self.menu.choose()
             return
         if self.arming_weapon == 3: #chaff
             self.fire_button.disarm()
@@ -747,6 +832,9 @@ class GameView(ui.RootElement):
 
     def thrust(self, on, key):
         if self.stopped:
+            #quick hack, this works then menu while stopped
+            if not on:
+                self.menu.key_press(key)
             return
         if on:
             self.mode.KeyDown(key)
@@ -870,8 +958,7 @@ class GameView(ui.RootElement):
         drawing.DrawNoTexture(globals.line_buffer)
 
         drawing.DrawAll(globals.quad_buffer,self.atlas.texture)
-
-        #drawing.DrawAll(globals.nonstatic_text_buffer,globals.text_manager.atlas.texture)
+        drawing.DrawAll(globals.nonstatic_text_buffer,globals.text_manager.atlas.texture)
 
     def DrawFinal(self):
         drawing.DrawNoTexture(globals.colour_tiles)

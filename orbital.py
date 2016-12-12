@@ -84,7 +84,6 @@ while not done:
 
     globals.current_view.Update(t)
     globals.current_view.Draw()
-
     drawing.EndCrt()
     globals.text_manager.Draw()
     drawing.DrawAll( globals.backdrop_buffer, globals.backdrop_texture )
