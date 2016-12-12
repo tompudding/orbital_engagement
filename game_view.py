@@ -308,10 +308,58 @@ class Menu(object):
                                           colour = (0,0.7,0,1),
                                           scale = 12)
             self.level_text.append((selected_button,text))
+        self.death_text = ui.TextBox( parent=self.frame,
+                                      bl=Point(0.05,0.75),
+                                      tr=None,
+                                      text='YOU DIED',
+                                      textType = drawing.texture.TextTypes.GRID_RELATIVE,
+                                      colour = (0,0.7,0,1),
+                                      scale = 16)
+        self.death_text.Disable()
+        self.win_text = ui.TextBox( parent=self.frame,
+                                      bl=Point(0.05,0.75),
+                                      tr=None,
+                                      text='YOU WON',
+                                      textType = drawing.texture.TextTypes.GRID_RELATIVE,
+                                      colour = (0,0.7,0,1),
+                                      scale = 16)
+        self.win_text.Disable()
         self.selected = None
+        self.splash = False
         self.select(0)
 
+    def show_win_screen(self):
+        #We need to disable the menu items
+        self.show_splash(self.win_text)
+
+    def show_die_screen(self):
+        self.show_splash(self.death_text)
+
+    def show_splash(self, item):
+        self.win_text.Disable()
+        self.death_text.Disable()
+
+        item.Enable()
+        self.splash = item
+        for a,b in self.level_text:
+            a.Disable()
+            b.Disable()
+        self.title.Disable()
+
+    def hide_splash(self):
+        self.win_text.Disable()
+        self.death_text.Disable()
+        self.splash = False
+        for a,b in self.level_text:
+            a.Enable()
+            b.Enable()
+        self.title.Enable()
+        self.win_text.Disable()
+        self.death_text.Disable()
+
     def select(self, n):
+        if self.splash:
+            return
         if n == self.selected:
             return
         if self.selected is not None:
@@ -334,10 +382,17 @@ class Menu(object):
         self.select(new)
 
     def choose(self):
+        if self.splash:
+            self.hide_splash()
+            return
         globals.game_view.Reset( self.selected )
 
     def Enable(self):
         self.frame.Enable()
+        if self.splash:
+            self.show_splash(self.splash)
+        else:
+            self.hide_splash()
 
     def Disable(self):
         self.frame.Disable()
@@ -818,6 +873,9 @@ class GameView(ui.RootElement):
         self.arm_end = None
         self.firing_solution_steps = []
         self.arm_progress.SetBarLevel(0)
+        self.player_health = 100
+        self.enemy_health = 100
+        self.end_time = None
         self.console.clear()
         self.console.add_text(self.intro_text[level])
         self.initial_state = { Objects.PLAYER : self.ship_body,
@@ -1079,6 +1137,13 @@ class GameView(ui.RootElement):
         if self.stopped:
             return
 
+        if self.end_time and (globals.time - self.end_time) > 1000:
+            self.Stop()
+            if self.player_health <= 0:
+                self.menu.show_die_screen()
+            else:
+                self.menu.show_win_screen()
+
         if self.disabled and globals.time > self.finish_stabalising:
             self.disabled = False
             self.overlay.SetColour( self.no_overlay )
@@ -1100,6 +1165,10 @@ class GameView(ui.RootElement):
                 to_destroy.append((obj_type, r))
         for (obj_type,r) in to_destroy:
             self.destroy_missile(obj_type, r)
+
+        #The missiles could have killed someone
+        if self.stopped:
+            return
 
         #draw explosions
         if self.explosions:
@@ -1302,7 +1371,7 @@ class GameView(ui.RootElement):
                     if obj >= Objects.MISSILE1:
                         self.destroy_missile(obj,explode=True)
                     else:
-                        damage = 10 if radius == self.explosion_radius else 100
+                        damage = 100 if radius == self.explosion_radius else 1000
                         self.damage(obj, damage * (1 - (diff / radius)))
         del self.initial_state[obj_type]
         del self.detonation_times[obj_type]
@@ -1320,12 +1389,14 @@ class GameView(ui.RootElement):
         print obj,amount
         if obj == Objects.PLAYER:
             self.player_health -= amount
-            if self.player_health < 0:
-                print 'dead!'
+            if self.player_health <= 0:
+                if self.end_time is None:
+                    self.end_time = globals.time
         else:
             self.enemy_health -= amount
-            if self.enemy_health < 0:
-                print 'victory!'
+            if self.enemy_health <= 0:
+                if self.end_time is None:
+                    self.end_time = globals.time
 
     def start_explosion(self, p, radius=None, colour=(1,1,1)):
         start = globals.time
@@ -1608,10 +1679,12 @@ class GameView(ui.RootElement):
             else:
                 self.music_playing = True
                 pygame.mixer.music.set_volume(1)
-        if key == pygame.K_SPACE:
+        if key == pygame.K_ESCAPE:
             self.Stop()
         if self.stopped:
             return
+        if key == pygame.K_SPACE:
+            self.damage(Objects.ENEMY, 100)
         if key == pygame.K_RETURN:
             self.stabalise_orbit(Objects.PLAYER)
         if key == pygame.K_RETURN:
