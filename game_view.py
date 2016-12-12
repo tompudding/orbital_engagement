@@ -874,6 +874,12 @@ class GameView(ui.RootElement):
                                                      ('thruster_right.png','thruster_right_pressed.png'),
                                                      lambda a,b,c,d,key=pygame.K_RIGHT: self.thrust(d, key))
 
+        self.key_to_thrust = { pygame.K_UP : self.thrust_up_button,
+                               pygame.K_DOWN : self.thrust_down_button,
+                               pygame.K_LEFT : self.thrust_left_button,
+                               pygame.K_RIGHT : self.thrust_right_button }
+
+
         bl = Point(0.8,0.01)
         tr = bl + Point(0.1,0.03)
         self.arm_progress = ui.PowerBar(globals.screen_root,
@@ -1904,18 +1910,10 @@ class GameView(ui.RootElement):
             self.viewpos.pos.y = y
 
     def KeyDown(self,key):
-        #rejig stuff
-
-        # for t, state in self.future_state:
-        #     state[Objects.PLAYER].line_seg.Delete()
-        # for t, state in self.future_state:
-        #     del state[Objects.PLAYER]
-
-        # d = 50 if key == 45 else -50
-        # self.initial_state[Objects.PLAYER].velocity += Point(0,d)
-        # self.fill_state_obj(Objects.PLAYER)
-        if key not in [pygame.K_UP, pygame.K_LEFT, pygame.K_DOWN, pygame.K_RIGHT]:
-            self.mode.KeyDown(key)
+        if self.stopped:
+            return
+        if key in self.key_to_thrust:
+            self.key_to_thrust[key].Depress(None)
 
     def KeyUp(self,key):
         if key == pygame.K_DELETE:
@@ -1929,10 +1927,8 @@ class GameView(ui.RootElement):
             self.Stop()
         if self.stopped:
             return
-        if key == pygame.K_SPACE:
-            self.damage(Objects.PLAYER, 100)
+        if key in self.key_to_thrust:
+            self.key_to_thrust[key].Undepress()
 
-        if key == pygame.K_RETURN:
-            self.lock_on(self.enemy)
-        self.mode.KeyUp(key)
+        #self.mode.KeyUp(key)
 
