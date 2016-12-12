@@ -577,6 +577,87 @@ class ImageBoxButton(ImageBox):
         if self.callback:
             self.callback(self,pos,button)
 
+class ThrustButton(ImageBox):
+    def __init__(self,
+                 parent,
+                 pos,
+                 texture_name,
+                 callback,
+                 buffer=None,
+                 level=None):
+        self.callback = callback
+        super(ThrustButton,self).__init__(parent,pos,texture_name,buffer,level)
+        self.root.RegisterUIElement(self)
+        #self.registered = False
+        #self.Enable()
+
+    def SetPos(self,pos):
+        #FIXME: This is shit. I can't be removing and adding every frame
+        #reregister = self.enabled
+        #if reregister:
+        #    self.root.RemoveUIElement(self)
+        super(ThrustButton,self).SetPos(pos)
+        #self.SetVertices()
+        #if reregister:
+        #    self.root.RegisterUIElement(self)
+
+
+    def Depress(self, pos):
+        self.quad.SetTextureCoordinates(self.tc_depressed)
+        self.callback(self,pos,None,True)
+
+    def Undepress(self):
+        self.quad.SetTextureCoordinates(self.tc_normal)
+        self.callback(self,None,None,False)
+
+    def Delete(self):
+        self.border.Delete()
+        super(ImageBoxButton,self).Delete()
+
+    def OnClick(self,pos,button):
+        return
+
+
+class FireButton(ImageBox):
+    def __init__(self,
+                 parent,
+                 pos,
+                 texture_name,
+                 callback,
+                 buffer=None,
+                 level=None):
+        self.callback = callback
+        super(FireButton,self).__init__(parent,pos,texture_name,buffer,level)
+        self.root.RegisterUIElement(self)
+        self.disarm()
+        #self.registered = False
+        #self.Enable()
+
+    def disarm(self):
+        self.quad.SetTextureCoordinates(self.tc_depressed)
+        self.armed = False
+
+    def arm(self):
+        self.armed = True
+        self.Undepress()
+
+    def Depress(self, pos):
+        if self.armed:
+            self.quad.SetTextureCoordinates(self.tc_depressed)
+
+    def Undepress(self):
+        if self.armed:
+            self.quad.SetTextureCoordinates(self.tc_normal)
+
+    def Delete(self):
+        self.border.Delete()
+        super(ImageBoxButton,self).Delete()
+
+    def OnClick(self,pos,button):
+        if self.callback and self.armed:
+            self.callback(self,pos,button)
+
+
 class ImageBoxToggleButton(ImageBoxButton):
     def __init__(self,
                  parent,

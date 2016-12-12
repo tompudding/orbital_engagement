@@ -535,6 +535,7 @@ class GameView(ui.RootElement):
                                                     lambda state,weapon=3: self.select_weapon(state, weapon))
 
         self.weapon_buttons = [self.missile_button, self.probe_button, self.nuke_button, self.chaff_button]
+        self.weapon_names = ['Missile','Probe','Nuke','Chaff']
         self.arm_button = ui.ImageBoxButton(globals.screen_root,
                                             Point(0.836,0.125),
                                             ('button_up_..png','button_down_..png'),
@@ -546,22 +547,22 @@ class GameView(ui.RootElement):
                                  200] #chaff
 
         bl = Point(0.48,0.085)
-        self.thrust_up_button = ui.ImageBoxButton(globals.screen_root,
+        self.thrust_up_button = ui.ThrustButton(globals.screen_root,
                                                   bl + Point(0.1,0.07),
                                                   ('thruster_up.png','thruster_up_pressed.png'),
-                                                  lambda a,b,c,dir=Point(0,1): self.thrust(dir))
-        self.thrust_down_button = ui.ImageBoxButton(globals.screen_root,
+                                                  lambda a,b,c,d,key=pygame.K_UP: self.thrust(d, key))
+        self.thrust_down_button = ui.ThrustButton(globals.screen_root,
                                                     bl + Point(0.1,0.0),
                                                     ('thruster_down.png','thruster_down_pressed.png'),
-                                                    lambda a,b,c,dir=Point(0,-1): self.thrust(dir))
-        self.thrust_left_button = ui.ImageBoxButton(globals.screen_root,
+                                                    lambda a,b,c,d,key=pygame.K_DOWN: self.thrust(d, key))
+        self.thrust_left_button = ui.ThrustButton(globals.screen_root,
                                                     bl + Point(0.07,0.035),
                                                     ('thruster_left.png','thruster_left_pressed.png'),
-                                                    lambda a,b,c,dir=Point(0,-1): self.thrust(dir))
-        self.thrust_right_button = ui.ImageBoxButton(globals.screen_root,
+                                                    lambda a,b,c,d,key=pygame.K_LEFT: self.thrust(d, key))
+        self.thrust_right_button = ui.ThrustButton(globals.screen_root,
                                                      bl + Point(0.13,0.035),
                                                      ('thruster_right.png','thruster_right_pressed.png'),
-                                                     lambda a,b,c,dir=Point(0,-1): self.thrust(dir))
+                                                     lambda a,b,c,d,key=pygame.K_RIGHT: self.thrust(d, key))
 
         bl = Point(0.8,0.01)
         tr = bl + Point(0.1,0.03)
@@ -573,6 +574,11 @@ class GameView(ui.RootElement):
                                                        drawing.constants.colours.yellow,
                                                        drawing.constants.colours.green),
                                         border_colour = (0,0,0,0.4))
+
+        self.fire_button = ui.FireButton(globals.screen_root,
+                                         Point(0.652,0.11),
+                                         ('fire_button_up.png','fire_button_down.png'),
+                                         lambda a,b,c: self.fire())
 
         self.StartMusic()
         self.stabalise_orbit(Objects.ENEMY)
@@ -606,8 +612,20 @@ class GameView(ui.RootElement):
         self.arm_end = None
         self.firing_solution_steps = []
 
-    def thrust(self, dir):
-        print dir
+    def fire(self):
+        if self.firing_solution is None:
+            self.console.add_text('Need firing solution')
+            return
+        print 'fire!'
+
+    def thrust(self, on, key):
+        if on:
+            self.mode.KeyDown(key)
+        else:
+            self.mode.KeyUp(key)
+
+        #print 'thrust',on,key
+
 
     def keypad_pressed(self, n):
         #print 'kp',n
@@ -766,9 +784,9 @@ class GameView(ui.RootElement):
 
         if self.arm_end is not None:
             if globals.time > self.arm_end:
-                self.console.add_text('Armed')
+                self.console.add_text('Armed %s' % self.weapon_names[self.arming_weapon])
                 self.arm_end = None
-                self.armed = True
+                self.fire_button.arm()
             else:
                 partial = float(globals.time - self.arm_start)/self.arm_duration
                 self.arm_progress.SetBarLevel(partial)
@@ -926,7 +944,8 @@ class GameView(ui.RootElement):
         self.arm_start = globals.time
         self.arm_duration = self.weapon_arm_times[self.selected_weapon]
         self.arm_end = globals.time + self.arm_duration
-        self.armed = False
+        self.arming_weapon = self.selected_weapon
+        self.fire_button.disarm()
         self.arm_progress.SetBarLevel(0)
         self.console.add_text('Arming...')
 
@@ -1237,8 +1256,8 @@ class GameView(ui.RootElement):
         # d = 50 if key == 45 else -50
         # self.initial_state[Objects.PLAYER].velocity += Point(0,d)
         # self.fill_state_obj(Objects.PLAYER)
-
-        self.mode.KeyDown(key)
+        if key not in [pygame.K_UP, pygame.K_LEFT, pygame.K_DOWN, pygame.K_RIGHT]:
+            self.mode.KeyDown(key)
 
     def KeyUp(self,key):
         if key == pygame.K_DELETE:

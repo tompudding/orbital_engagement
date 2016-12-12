@@ -72,10 +72,7 @@ class Combat(Mode):
                          pygame.K_RIGHT : Point( 0.01*speed, 0.00),
                          pygame.K_UP    : Point( 0.00, 0.01*speed),
                          pygame.K_DOWN  : Point( 0.00,-0.01*speed)}
-    translations = {pygame.K_a : pygame.K_LEFT,
-                    pygame.K_d : pygame.K_RIGHT,
-                    pygame.K_w : pygame.K_UP,
-                    pygame.K_s : pygame.K_DOWN}
+    translations = {}
     class KeyFlags:
         LEFT  = 1
         RIGHT = 2
