@@ -889,6 +889,8 @@ class GameView(ui.RootElement):
         for button in self.weapon_buttons:
             if button.state:
                 button.OnClick(None,None,skip_callback=True)
+        if self.manual_button.state:
+            self.manual_button.OnClick(None, None, skip_callback=True)
         self.stopped = True
         #Disable all the lines and we'll just not draw the quads
         self.sun.quad.Disable()
