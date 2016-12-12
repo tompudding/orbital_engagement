@@ -202,6 +202,18 @@ class FixedBody(Body):
 class BodyImage(object):
     def __init__(self):
         self.quad = drawing.Quad(globals.quad_buffer, tc=globals.atlas.TextureSpriteCoords(self.texture_name))
+        self.enabled = True
+
+    def Disable(self):
+        if self.enabled:
+            self.enabled = False
+            self.quad.Disable()
+
+    def Enable(self):
+        if not self.enabled:
+            self.enabled = True
+            self.quad.Enable()
+
 
     def set_vertices(self, pos):
         bl = pos - Point(16,16)
@@ -224,7 +236,7 @@ class Enemy(Ship):
         super(Enemy, self).__init__(*args, **kwargs)
         self.locked = False
         #Inert like an asteroid
-        self.active = True
+        self.active = False
 
 class Missile(BodyImage):
     texture_name = 'missile.png'
@@ -242,11 +254,16 @@ class Objects:
     MISSILE5 = 7
 
     missiles = [MISSILE1, MISSILE2, MISSILE3, MISSILE4, MISSILE5]
-    mobile = [PLAYER, ENEMY] + missiles
+    mobile = [PLAYER, ENEMY]
 
 line_colours = { Objects.PLAYER : (0,0,1),
                  Objects.MISSILE1 : (0.2,0.2,0.2),
                  Objects.ENEMY  : (1,0,0) }
+
+for i in xrange(Objects.MISSILE5 + 1, Objects.MISSILE5 + 100):
+    Objects.missiles.append(i)
+
+Objects.mobile += Objects.missiles
 
 for t in Objects.missiles:
     line_colours[t] = line_colours[Objects.MISSILE1]
@@ -281,6 +298,10 @@ class Explosion(object):
                 line.Delete()
             return False
         return True
+
+    def Delete(self):
+        for line in self.lines:
+            line.Delete()
 
 class Keypad(object):
     positions = {'0'  : Point(0,0),
@@ -452,22 +473,23 @@ class GameView(ui.RootElement):
         #orbit_velocity = 3
         print orbit_velocity
 
+        self.initial_data = { Objects.PLAYER : ( Point(100, 0), (Point(0,-1).unit_vector()) * orbit_velocity ),
+                              Objects.ENEMY  : ( Point(120, 120), (Point(1,-1).unit_vector()) * 100, True ) }
+
         self.ship_body = Body( Point(100, 0), (Point(0,-1).unit_vector()) * orbit_velocity, type=Objects.PLAYER, mass=1 )
         self.enemy_body = Body( Point(120, 120), (Point(1,-1).unit_vector()) * 100, type=Objects.ENEMY, mass=1 )
 
         self.fixed_bodies = [self.sun_body]
-        self.missile_images = [Missile() for i in xrange(5)]
+        self.missile_images = [Missile() for i in xrange(len(Objects.missiles))]
         self.initial_state = { Objects.PLAYER : self.ship_body,
                                Objects.ENEMY  : self.enemy_body,
                                Objects.SUN    : self.sun_body }
         self.object_quads = { Objects.PLAYER : self.ship,
-                              Objects.ENEMY : self.enemy,
-                              Objects.MISSILE1 : self.missile_images[0],
-                              Objects.MISSILE2 : self.missile_images[1],
-                              Objects.MISSILE3 : self.missile_images[2],
-                              Objects.MISSILE4 : self.missile_images[3],
-                              Objects.MISSILE5 : self.missile_images[4],
-                              }
+                              Objects.ENEMY : self.enemy }
+        for (i,obj) in enumerate(Objects.missiles):
+            self.object_quads[obj] = self.missile_images[i]
+
+
         self.trail_properties = { Objects.PLAYER : (60000.0, 8000.0),
                                   Objects.ENEMY  : (60000.0, 8000.0) }
         for t in Objects.missiles:
@@ -483,7 +505,6 @@ class GameView(ui.RootElement):
         self.dragging = None
         self.zoom = 1
         self.zooming = None
-        self.temp_bodies = []
         self.last = None
         self.detonation_times = {}
         self.explosions = []
@@ -613,6 +634,83 @@ class GameView(ui.RootElement):
         self.arm_end = None
         self.firing_solution_steps = []
 
+        self.Reset()
+
+    def Reset(self):
+        self.Stop()
+        #Reset the data
+        pos,velocity = self.initial_data[Objects.PLAYER]
+        self.ship_body.pos = pos
+        self.ship_body.velocity = velocity
+        pos,velcity,active = self.initial_data[Objects.ENEMY]
+        self.enemy_body.pos = pos
+        self.enemy_body.velocity = velocity
+        self.enemy_body.active = active
+        self.viewpos = Viewpos(Point(-320,-180))
+        self.dragging = None
+        self.zoom = 1
+        self.zooming = None
+        self.detonation_times = {}
+        self.explosions = []
+        self.enemy.locked = False
+        self.firing_solution = None
+        self.firing_solution_steps = []
+        #self.console.clear()
+        self.initial_state = { Objects.PLAYER : self.ship_body,
+                               Objects.ENEMY  : self.enemy_body,
+                               Objects.SUN    : self.sun_body }
+        self.Start()
+
+    def Stop(self):
+        self.stopped = True
+        #Disable all the lines and we'll just not draw the quads
+        self.sun.quad.Disable()
+        self.ship.quad.Disable()
+        self.enemy.quad.Disable()
+        for m in self.missile_images:
+            m.quad.Disable()
+        for obj_type in Objects.mobile:
+            for i in xrange(0, len(self.future_state)):
+                try:
+                    self.future_state[i][1][obj_type].line_seg.Delete()
+                except KeyError:
+                    continue
+            #Also the saved segs
+            if obj_type not in self.saved_segs:
+                continue
+            for (t,line_seg) in self.saved_segs[obj_type]:
+                line_seg.Delete()
+        #Finally the firing solution line
+        for body in self.firing_solution_steps:
+            body.line_seg.Delete()
+        for exp in self.explosions:
+            exp.Delete()
+
+    def Start(self):
+        self.stopped = False
+        self.sun.quad.Enable()
+        self.ship.quad.Enable()
+        self.enemy.quad.Enable()
+        for m in self.missile_images:
+            if m.enabled:
+                m.quad.Enable()
+        for obj_type in Objects.mobile:
+            for i in xrange(0, len(self.future_state)):
+                try:
+                    self.future_state[i][1][obj_type].line_seg.Enable()
+                except KeyError:
+                    continue
+            #Also the saved segs
+            if obj_type not in self.saved_segs:
+                continue
+            for (t,line_seg) in self.saved_segs[obj_type]:
+                line_seg.Enable()
+        #Finally the firing solution line
+        for body in self.firing_solution_steps:
+            body.line_seg.Enable()
+
+
+
     def fire(self):
         if self.arming_weapon == 3: #chaff
             self.fire_button.disarm()
@@ -628,11 +726,16 @@ class GameView(ui.RootElement):
                 if diff < self.explosion_radius*1.5:
                     #Kill this missile
                     self.destroy_missile(obj_type,explode=False)
+            return
 
-        if self.firing_solution is None and self.arming_weapon != 3:
+        if self.firing_solution is None:
             self.console.add_text('Need firing solution')
             return
-        print 'fire!'
+        radius = self.explosion_radius
+        if self.arming_weapon == 2:
+            radius *= 3
+        print 'fire!',radius
+        self.launch_missile( Objects.PLAYER, *self.firing_solution, radius=radius )
         self.fire_button.disarm()
         self.arm_progress.SetBarLevel(0)
 
@@ -795,6 +898,9 @@ class GameView(ui.RootElement):
         if self.mode:
             self.mode.Update(t)
 
+        if self.stopped:
+            return
+
         if self.disabled and globals.time > self.finish_stabalising:
             self.disabled = False
             self.overlay.SetColour( self.no_overlay )
@@ -811,11 +917,11 @@ class GameView(ui.RootElement):
 
         #kill missiles in flight
         to_destroy = []
-        for obj_type, t in self.detonation_times.iteritems():
+        for obj_type, (t, r) in self.detonation_times.iteritems():
             if t < globals.time:
-                to_destroy.append(obj_type)
-        for obj_type in to_destroy:
-            self.destroy_missile(obj_type)
+                to_destroy.append((obj_type, r))
+        for (obj_type,r) in to_destroy:
+            self.destroy_missile(obj_type, r)
 
         #draw explosions
         if self.explosions:
@@ -868,10 +974,10 @@ class GameView(ui.RootElement):
                         body = body.step(2000 * globals.time_factor, self.fixed_bodies)
                         self.firing_solution_steps.append(body)
                 if (obj_type == Objects.ENEMY and not self.enemy.locked):
-                    self.object_quads[obj_type].quad.Disable()
+                    self.object_quads[obj_type].Disable()
                 else:
                     self.object_quads[obj_type].set_vertices( n.pos )
-                    self.object_quads[obj_type].quad.Enable()
+                    self.object_quads[obj_type].Enable()
                 self.initial_state[obj_type] = n
 
         if line_update:
@@ -979,8 +1085,10 @@ class GameView(ui.RootElement):
 
         self.selected_weapon = index
 
-    def launch_missile(self, source_type, angle, delay):
+    def launch_missile(self, source_type, angle, delay, radius = None):
         #find a new id for the missile
+        if radius is None:
+            radius = self.explosion_radius
         for obj_type in Objects.missiles:
             if obj_type not in self.initial_state:
                 #found one
@@ -988,28 +1096,58 @@ class GameView(ui.RootElement):
         else:
             print 'gah couldn\'t find space for a new missile'
             return
-        print 'new missile is',obj_type
+        print 'new missile is',obj_type,radius
         source = self.initial_state[source_type]
         v = cmath.rect(self.missile_speed, angle)
         velocity = Point(v.real, v.imag)
         self.initial_state[obj_type] = Body( source.pos, source.velocity + velocity, obj_type, Missile.mass )
-        self.detonation_times[obj_type] = globals.time + delay
+        self.detonation_times[obj_type] = (globals.time + delay, radius)
 
-    def destroy_missile(self, obj_type, explode=True):
+    def destroy_missile(self, obj_type, radius=None, explode=True):
         #remove it from the initial_state
         if explode:
-            self.start_explosion( self.initial_state[obj_type].pos )
+            if radius is None:
+                radius = self.explosion_radius
+            self.start_explosion( self.initial_state[obj_type].pos, radius )
+            #check for damage
+            for obj in Objects.mobile:
+                if obj == obj_type:
+                    continue
+                try:
+                    p = self.initial_state[obj].pos
+                except KeyError:
+                    continue
+
+                diff = (p - self.initial_state[obj_type].pos).length()
+                if diff < radius:
+                    #damage
+                    if obj >= Objects.MISSILE1:
+                        self.destroy_missile(obj,explode=True)
+                    else:
+                        damage = 10 if radius == self.explosion_radius else 100
+                        self.damage(obj, damage * (1 - (diff / radius)))
         del self.initial_state[obj_type]
         del self.detonation_times[obj_type]
         for t,state in self.future_state:
             if obj_type in state:
                 state[obj_type].line_seg.Delete()
-            del state[obj_type]
-        self.object_quads[obj_type].quad.Disable()
+                del state[obj_type]
+        self.object_quads[obj_type].Disable()
         if obj_type in self.saved_segs:
             for (t,seg) in self.saved_segs[obj_type]:
                 seg.Delete()
             self.saved_segs[obj_type] = []
+
+    def damage(self, obj, amount):
+        print obj,amount
+        if obj == Objects.PLAYER:
+            self.player_health -= amount
+            if self.player_health < 0:
+                print 'dead!'
+        else:
+            self.enemy_health -= amount
+            if self.enemy_health < 0:
+                print 'victory!'
 
     def start_explosion(self, p, radius=None, colour=(1,1,1)):
         start = globals.time
@@ -1290,7 +1428,9 @@ class GameView(ui.RootElement):
                 self.music_playing = True
                 pygame.mixer.music.set_volume(1)
         if key == pygame.K_SPACE:
-            self.start_scan()
+            self.Reset()
+        if self.stopped:
+            return
         if key == pygame.K_RETURN:
             self.stabalise_orbit(Objects.PLAYER)
         if key == pygame.K_RETURN:
