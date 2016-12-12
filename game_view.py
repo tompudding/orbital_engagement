@@ -224,7 +224,7 @@ class Enemy(Ship):
         super(Enemy, self).__init__(*args, **kwargs)
         self.locked = False
         #Inert like an asteroid
-        self.active = False
+        self.active = True
 
 class Missile(BodyImage):
     texture_name = 'missile.png'
@@ -253,13 +253,14 @@ for t in Objects.missiles:
 
 class Explosion(object):
     line_segs = 32
-    def __init__(self, line_buffer, start, end, pos, radius):
+    def __init__(self, line_buffer, start, end, pos, radius, colour):
         self.lines = [drawing.Line(line_buffer) for i in xrange(self.line_segs)]
         self.start = start
         self.radius = radius
         self.end = end
         self.duration = float(end - start)
         self.pos = pos
+        self.colour = colour
 
     def Update(self):
         partial = (globals.time - self.start) / self.duration
@@ -274,7 +275,7 @@ class Explosion(object):
             self.lines[i].SetVertices( last, p, 10000 )
             last = p
             intensity = 1 - partial
-            self.lines[i].SetColour( (1,1,1,intensity))
+            self.lines[i].SetColour( self.colour + (intensity,))
         if globals.time > self.end:
             for line in self.lines:
                 line.Delete()
@@ -613,10 +614,27 @@ class GameView(ui.RootElement):
         self.firing_solution_steps = []
 
     def fire(self):
-        if self.firing_solution is None:
+        if self.arming_weapon == 3: #chaff
+            self.fire_button.disarm()
+            self.arm_progress.SetBarLevel(0)
+            self.start_explosion( self.initial_state[Objects.PLAYER].pos, radius=self.explosion_radius*1.4, colour = (0.2,0.2,1) )
+            #If any missiles are in our radius then we'll just make them inert
+            for obj_type in Objects.missiles:
+                try:
+                    p = self.initial_state[obj_type].pos
+                except KeyError:
+                    continue
+                diff = (p - self.initial_state[Objects.PLAYER].pos).length()
+                if diff < self.explosion_radius*1.5:
+                    #Kill this missile
+                    self.destroy_missile(obj_type,explode=False)
+
+        if self.firing_solution is None and self.arming_weapon != 3:
             self.console.add_text('Need firing solution')
             return
         print 'fire!'
+        self.fire_button.disarm()
+        self.arm_progress.SetBarLevel(0)
 
     def thrust(self, on, key):
         if on:
@@ -878,7 +896,8 @@ class GameView(ui.RootElement):
             if self.enemy.active:
                 solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
                 if solution is not None:
-                    print 'Enemy has firing solution go go go',solution
+                    #print 'Enemy has firing solution go go go',solution
+                    self.console.add_text('Enemy launch detected')
                     self.launch_missile( Objects.ENEMY, *solution )
             #Kill the line segments that are in the future
             for t,state in self.future_state:
@@ -976,9 +995,10 @@ class GameView(ui.RootElement):
         self.initial_state[obj_type] = Body( source.pos, source.velocity + velocity, obj_type, Missile.mass )
         self.detonation_times[obj_type] = globals.time + delay
 
-    def destroy_missile(self, obj_type):
+    def destroy_missile(self, obj_type, explode=True):
         #remove it from the initial_state
-        self.start_explosion( self.initial_state[obj_type].pos )
+        if explode:
+            self.start_explosion( self.initial_state[obj_type].pos )
         del self.initial_state[obj_type]
         del self.detonation_times[obj_type]
         for t,state in self.future_state:
@@ -991,11 +1011,13 @@ class GameView(ui.RootElement):
                 seg.Delete()
             self.saved_segs[obj_type] = []
 
-    def start_explosion(self, p):
+    def start_explosion(self, p, radius=None, colour=(1,1,1)):
         start = globals.time
         end = globals.time + self.explosion_duration
         pos = p
-        self.explosions.append( Explosion(self.explosion_line_buffer, start, end, pos, self.explosion_radius) )
+        if radius is None:
+            radius = self.explosion_radius
+        self.explosions.append( Explosion(self.explosion_line_buffer, start, end, pos, radius, colour) )
 
     def hit_stabalise(self):
         self.finish_stabalising = globals.time + self.stabalise_duration
