@@ -1053,7 +1053,7 @@ class GameView(ui.RootElement):
         if self.arming_weapon == 2:
             radius *= 3
         print 'fire!',radius
-        self.launch_missile( Objects.PLAYER, *self.firing_solution, radius=radius )
+        self.launch_missile( Objects.PLAYER, *self.firing_solution, radius=radius, probe=self.arming_weapon == 1 )
         self.fire_button.disarm()
         self.arm_progress.SetBarLevel(0)
 
@@ -1250,11 +1250,11 @@ class GameView(ui.RootElement):
 
         #kill missiles in flight
         to_destroy = []
-        for obj_type, (t, r) in self.detonation_times.iteritems():
+        for obj_type, (t, r, probe) in self.detonation_times.iteritems():
             if t < globals.time:
-                to_destroy.append((obj_type, r))
-        for (obj_type,r) in to_destroy:
-            self.destroy_missile(obj_type, r)
+                to_destroy.append((obj_type, r, probe))
+        for (obj_type,r,probe) in to_destroy:
+            self.destroy_missile(obj_type, r, probe=probe)
 
         #The missiles could have killed someone
         if self.stopped:
@@ -1423,7 +1423,7 @@ class GameView(ui.RootElement):
 
         self.selected_weapon = index
 
-    def launch_missile(self, source_type, angle, delay, radius = None):
+    def launch_missile(self, source_type, angle, delay, radius = None, probe=False):
         #find a new id for the missile
         if radius is None:
             radius = self.explosion_radius
@@ -1439,11 +1439,16 @@ class GameView(ui.RootElement):
         v = cmath.rect(self.missile_speed, angle)
         velocity = Point(v.real, v.imag)
         self.initial_state[obj_type] = Body( source.pos, source.velocity + velocity, obj_type, Missile.mass )
-        self.detonation_times[obj_type] = (globals.time + delay, radius)
+        self.detonation_times[obj_type] = (globals.time + delay, radius, probe)
 
-    def destroy_missile(self, obj_type, radius=None, explode=True):
+    def destroy_missile(self, obj_type, radius=None, explode=True, probe=False):
         #remove it from the initial_state
-        if explode:
+        print 'destroy',explode,probe
+        if probe and explode:
+            self.scan_start = globals.time
+            self.scan_end = globals.time + self.scan_duration
+            self.scan_start_pos = self.initial_state[obj_type].pos
+        elif explode:
             if radius is None:
                 radius = self.explosion_radius
             self.start_explosion( self.initial_state[obj_type].pos, radius )
