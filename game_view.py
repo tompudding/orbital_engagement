@@ -447,6 +447,36 @@ class Explosion(object):
         for line in self.lines:
             line.Delete()
 
+class Echo(object):
+    duration = 1000.0
+    height = 9000
+    def __init__(self, pos, t):
+        self.pos = pos
+        self.t = t
+        self.quad = drawing.Quad(globals.quad_buffer, tc=globals.atlas.TextureSpriteCoords('enemy.png'))
+        bl = pos - Point(16,16)
+        tr = bl + Point(32,32)
+        self.quad.SetVertices(bl, tr, self.height)
+        self.quad.SetColour( (1,1,1,1) )
+        self.deleted = False
+
+    def update(self):
+        if self.deleted:
+            return False
+        elapsed = globals.time - self.t
+        if elapsed > self.duration:
+            self.Delete()
+            return False
+        partial = elapsed / self.duration
+        self.quad.SetColour( (1,1,1,1-partial) )
+        return True
+
+    def Delete(self):
+        if not self.deleted:
+            self.deleted = True
+            self.quad.Delete()
+
+
 class Keypad(object):
     positions = {'0'  : Point(0,0),
                  '.'  : Point(1,0),
@@ -624,6 +654,7 @@ class GameView(ui.RootElement):
         self.grid.Enable()
         self.sun_body  = FixedBody( pos=Point(0,0), velocity=Point(0,0), type=Objects.SUN, mass=100000000 )
         self.sun.set_vertices(self.sun_body.pos)
+        self.echoes = []
 
         self.initial_data = [
             #For the tutorial the asteroid is just behind the player in the orbit so they don't go out of sync
@@ -653,7 +684,7 @@ class GameView(ui.RootElement):
                     Point(0,-1) * self.circular_orbit_velocity(120)
                     ),
                 Objects.ENEMY  : (
-                    Point(120, 0).Rotate(0.1),
+                    Point(120, 0).Rotate(math.pi),
                     Point(0,-1).Rotate(math.pi) * self.circular_orbit_velocity(120),
                     False
                     ),
@@ -664,7 +695,7 @@ class GameView(ui.RootElement):
                     Point(0,-1) * self.circular_orbit_velocity(120)
                     ),
                 Objects.ENEMY  : (
-                    Point(120, 0).Rotate(0.1),
+                    Point(120, 0).Rotate(math.pi),
                     Point(0,-1).Rotate(math.pi) * self.circular_orbit_velocity(120),
                     True
                     ),
@@ -910,6 +941,7 @@ class GameView(ui.RootElement):
         self.enemy_health = 100
         self.end_time = None
         self.console.clear()
+        self.echoes = []
         self.console.add_text(self.intro_text[level])
         self.initial_state = { Objects.PLAYER : self.ship_body,
                                Objects.ENEMY  : self.enemy_body,
@@ -936,6 +968,8 @@ class GameView(ui.RootElement):
         self.enemy.Disable()
         for m in self.missile_images:
             m.Disable()
+        for echo in self.echoes:
+            echo.Delete()
         for obj_type in Objects.mobile:
             for i in xrange(0, len(self.future_state)):
                 try:
@@ -1195,6 +1229,8 @@ class GameView(ui.RootElement):
                 self.menu.show_die_screen()
             else:
                 self.menu.show_win_screen()
+
+        self.echoes = [echo for echo in self.echoes if echo.update()]
 
         if self.disabled and globals.time > self.finish_stabalising:
             self.disabled = False
@@ -1522,7 +1558,7 @@ class GameView(ui.RootElement):
         for line in self.scan_lines:
             line.SetColour( (0,0,0,0) )
         if not self.enemy.locked:
-            print 'no ememy'
+            self.echoes.append(Echo(self.initial_state[Objects.ENEMY].pos, globals.time))
 
     def lock_on(self, enemy, reacquire=False):
         if self.enemy_health <= 0:
