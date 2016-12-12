@@ -654,7 +654,10 @@ class GameView(ui.RootElement):
         self.explosions = []
         self.enemy.locked = False
         self.firing_solution = None
+        self.selected_weapon = None
+        self.arm_end = None
         self.firing_solution_steps = []
+        self.arm_progress.SetBarLevel(0)
         #self.console.clear()
         self.initial_state = { Objects.PLAYER : self.ship_body,
                                Objects.ENEMY  : self.enemy_body,
@@ -668,7 +671,7 @@ class GameView(ui.RootElement):
         self.ship.quad.Disable()
         self.enemy.quad.Disable()
         for m in self.missile_images:
-            m.quad.Disable()
+            m.Disable()
         for obj_type in Objects.mobile:
             for i in xrange(0, len(self.future_state)):
                 try:
@@ -712,6 +715,8 @@ class GameView(ui.RootElement):
 
 
     def fire(self):
+        if self.stopped:
+            return
         if self.arming_weapon == 3: #chaff
             self.fire_button.disarm()
             self.arm_progress.SetBarLevel(0)
@@ -740,6 +745,8 @@ class GameView(ui.RootElement):
         self.arm_progress.SetBarLevel(0)
 
     def thrust(self, on, key):
+        if self.stopped:
+            return
         if on:
             self.mode.KeyDown(key)
         else:
@@ -750,7 +757,7 @@ class GameView(ui.RootElement):
 
     def keypad_pressed(self, n):
         #print 'kp',n
-        if not self.console.entering:
+        if not self.console.entering or self.stopped:
             return
 
         if n == 'E':
@@ -1075,7 +1082,7 @@ class GameView(ui.RootElement):
         self.console.add_text('Arming...')
 
     def select_weapon(self, state, index):
-        if not state:
+        if not state or self.stopped:
             #don't care
             return
 
@@ -1158,6 +1165,8 @@ class GameView(ui.RootElement):
         self.explosions.append( Explosion(self.explosion_line_buffer, start, end, pos, radius, colour) )
 
     def hit_stabalise(self):
+        if self.stopped:
+            return
         self.finish_stabalising = globals.time + self.stabalise_duration
         self.disabled = True
         if self.enemy.locked:
@@ -1184,7 +1193,7 @@ class GameView(ui.RootElement):
 
     def start_scan(self):
         #The player has started a scan, start drawing the circle
-        if self.disabled:
+        if self.disabled or self.stopped:
             return
         self.scan_start = globals.time
         self.scan_end = globals.time + self.scan_duration
@@ -1262,7 +1271,8 @@ class GameView(ui.RootElement):
         #self.launch_missile( Objects.PLAYER, angle, delay )
 
     def manual_firing(self, state):
-        print 'manual',state
+        if self.stopped:
+            return
         if self.console.entering:
             self.console.entering = False
             self.console.add_text('\ncancelled')
