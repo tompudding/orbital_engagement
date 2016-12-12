@@ -438,7 +438,6 @@ class Console(object):
         self.last = globals.time
         self.unflash()
 
-
     def flash(self):
         self.saved_char = self.get_char(self.pos)
         self.set_char(self.pos, '\x9f')
@@ -465,6 +464,9 @@ class Console(object):
         if self.toggle:
             #Turn it off for now
             self.unflash()
+
+        if char == ' ' and self.pos.x == 0:
+            return
 
         if char != '\n':
             self.set_char(self.pos, char)
@@ -561,8 +563,8 @@ class GameView(ui.RootElement):
                     Point(0,-1) * self.circular_orbit_velocity(100)
                     ),
               Objects.ENEMY  : (
-                    Point(100, 0).Rotate(0.1),
-                    Point(0,-1).Rotate(0.1) * self.circular_orbit_velocity(100),
+                    Point(110, 0).Rotate(1.2),
+                    Point(0,-1).Rotate(1.2) * self.circular_orbit_velocity(110),
                     False
                     ),
               },
@@ -622,7 +624,9 @@ class GameView(ui.RootElement):
               }
             ]
 
-        self.intro_text = ['a','b','c','d','e']
+        self.intro_text = ['Welcome to the orbital defence simulator private! Get used to this room as it\'s all you''ll be seeing for the rest of, er, I mean the next few months of, your life.',
+                           'b','c','d','e','f'
+                           ]
 
         self.ship_body = Body( Point(1, 0), Point(0,0), type=Objects.PLAYER, mass=1 )
         self.enemy_body = Body( Point(1, 0), Point(0,0), type=Objects.ENEMY, mass=1 )
@@ -796,7 +800,8 @@ class GameView(ui.RootElement):
         pos,velocity = self.initial_data[level][Objects.PLAYER]
         self.ship_body.pos = pos.Rotate(rotation)
         self.ship_body.velocity = velocity.Rotate(rotation)
-        pos,velcity,active = self.initial_data[level][Objects.ENEMY]
+
+        pos,velocity,active = self.initial_data[level][Objects.ENEMY]
 
         self.enemy_body.pos = pos.Rotate(rotation)
         self.enemy_body.velocity = velocity.Rotate(rotation)
