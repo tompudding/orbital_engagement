@@ -1144,8 +1144,11 @@ class GameView(ui.RootElement):
             self.mode.KeyUp(key)
 
     def keypad_pressed(self, n):
-
-        if not self.console.entering or self.stopped:
+        if self.stopped:
+            return
+        if not self.console.entering:
+            if self.manual_button.state:
+                self.manual_firing(True)
             return
         globals.sounds.keypad.play()
         if n == 'E':
