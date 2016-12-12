@@ -240,6 +240,8 @@ class Ship(BodyImage):
 class Enemy(Ship):
     texture_name = 'enemy.png'
     scan_line_parts = 32
+    scan_radius = 150
+    scan_duration = 500.0
     def __init__(self, *args, **kwargs):
         super(Enemy, self).__init__(*args, **kwargs)
         self.locked = False
@@ -963,6 +965,7 @@ class GameView(ui.RootElement):
         self.enemy_body.pos = pos.Rotate(rotation)
         self.enemy_body.velocity = velocity.Rotate(rotation)
         self.enemy = Enemy()
+        self.enemy.active = active
         self.viewpos = Viewpos(Point(-320,-180))
         self.dragging = None
         self.zoom = 1
@@ -1379,40 +1382,50 @@ class GameView(ui.RootElement):
             else:
                 self.draw_scan( self.scan_radius, self.scan_start_pos, self.scan_lines, partial / self.scan_duration )
 
+        if self.enemy.scan_start:
+            partial = globals.time - self.enemy.scan_start
+            if partial > self.scan_duration:
+                self.end_scan(self.enemy)
+                distance = (self.initial_state[Objects.PLAYER].pos - self.initial_state[Objects.ENEMY].pos).length()
+                if distance < self.scan_radius:
+                    self.enemy.has_lock = True
+                    self.enemy.lock_time = globals.time
+                else:
+                    self.enemy.has_lock = False
+                    self.enemy.lock_time = None
+            else:
+                self.draw_scan( self.enemy.scan_radius,
+                                self.enemy.scan_start_pos,
+                                self.enemy.scan_lines,
+                                partial / self.enemy.scan_duration )
+
         if self.future_state[1][0] < globals.time:
             #Now there's been an update, let's see if we can get a firing solution on the player :)
             if self.enemy.active:
                 #If the enemy does not have a lock it needs to try and get one
-                if self.enemy.scan_start:
-                     partial = globals.time - enemy.scan_start
-                     if partial > self.scan_duration:
-                         self.end_scan(self.enemy)
-                         print 'enemy scan end'
-                     else:
-                         self.draw_scan( self.enemy.scan_radius,
-                                         self.enemy.scan_start_pos,
-                                         self.enemy.scan_lines,
-                                         partial / self.enemy.scan_duration )
-                elif not self.enemy.has_lock:
-                    #if we don't have a lock we must scan
-                    self.enemy.scan_start = globals.time
-                    self.enemy.scan_end = globals.time + self.scan_duration
-                    self.enemy.scan_start_pos = self.initial_state[Objects.ENEMY].pos
+                if not self.enemy.has_lock:
+                    if self.enemy.scan_start is None:
+                        #if we don't have a lock we must scan
+                        self.enemy.scan_start = globals.time
+                        self.enemy.scan_end = globals.time + self.scan_duration
+                        self.enemy.scan_start_pos = self.initial_state[Objects.ENEMY].pos
+                    else:
+                        #it's ok, we're scanning
+                        pass
                 else:
                     #the enemy has a lock, but has it expired?
-                    lock_age = globals.time - self.lock_time
-                    diistance = (self.initial_state[Objects.PLAYER].pos - self.initial_state[Objects.ENEMY].pos).length()
+                    lock_age = globals.time - self.enemy.lock_time
+                    distance = (self.initial_state[Objects.PLAYER].pos - self.initial_state[Objects.ENEMY].pos).length()
                     if distance > self.scan_radius*1.4 and lock_age > 10000:
                         self.enemy.has_lock = False
                     else:
                         #The lock is still live. Maybe fire
-                        print 'live lock!',lock_age,distance
+                        solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
+                        if solution is not None:
+                            print 'Enemy has firing solution go go go',solution
+                            self.console.add_text('Enemy launch detected')
+                            self.launch_missile( Objects.ENEMY, *solution )
 
-                solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
-                if solution is not None:
-                    #print 'Enemy has firing solution go go go',solution
-                    self.console.add_text('Enemy launch detected')
-                    self.launch_missile( Objects.ENEMY, *solution )
             #Kill the line segments that are in the future
             for t,state in self.future_state:
                 for obj_type in Objects.mobile:
@@ -1623,7 +1636,8 @@ class GameView(ui.RootElement):
             p = scan_start_pos + Point(v.real, v.imag)
             if not self.enemy.locked or (not self.manual_button.state and not self.firing_solution):
                 d = (p - self.initial_state[Objects.ENEMY].pos).SquareLength()
-                if d < 1000:
+                #mega hax
+                if d < 1000 and scan_lines is self.scan_lines:
                     self.lock_on(self.enemy)
 
             scan_lines[i].SetVertices( last, p, 10000 )
