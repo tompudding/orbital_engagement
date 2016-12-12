@@ -169,6 +169,7 @@ class Body(object):
         period = 40000.0
         best_time = period
         firing_angle = None
+        target_type = target.type
         for angle in angle_guesses:
             body = self
             v = cmath.rect(globals.game_view.missile_speed, angle)
@@ -177,14 +178,16 @@ class Body(object):
             step = 1000
             t = globals.time
 
+
             while t < globals.time + period:
-                target = globals.game_view.get_obj_at_time( target.type, t )
+                target = globals.game_view.get_obj_at_time( target_type, t )
                 if target:
                     distance = (target.pos - body.pos).length()
                     if distance < min_distance and (t - globals.time) < best_time:
                         best_time = t - globals.time
                         firing_angle = angle
                     #body.apply_force_towards( target, 1 )
+
                 body = body.step(step * globals.time_factor, globals.game_view.fixed_bodies, line = False)
                 #self.temp_bodies.append(body)
                 t += step
@@ -916,6 +919,7 @@ class GameView(ui.RootElement):
         else:
             self.tutorial = False
         self.Start()
+
         #self.Stop()
 
     def Stop(self):
@@ -1516,6 +1520,8 @@ class GameView(ui.RootElement):
         self.scan_start = None
         for line in self.scan_lines:
             line.SetColour( (0,0,0,0) )
+        if not self.enemy.locked:
+            print 'no ememy'
 
     def lock_on(self, enemy, reacquire=False):
         if self.enemy_health <= 0:
@@ -1523,7 +1529,6 @@ class GameView(ui.RootElement):
         enemy.locked = True
         if self.manual_button.state:
             return
-
         if self.tutorial == self.tutorial_click_scan:
             self.tutorial()
         #Let's try and grab a firing solution
