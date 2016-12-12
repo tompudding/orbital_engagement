@@ -885,6 +885,10 @@ class GameView(ui.RootElement):
         #self.Stop()
 
     def Stop(self):
+        #reset the buttons before we stop it since they don't work when stopped
+        for button in self.weapon_buttons:
+            if button.state:
+                button.OnClick(None,None,skip_callback=True)
         self.stopped = True
         #Disable all the lines and we'll just not draw the quads
         self.sun.quad.Disable()
@@ -908,6 +912,7 @@ class GameView(ui.RootElement):
             body.line_seg.Delete()
         for exp in self.explosions:
             exp.Delete()
+
         #For the menu
         self.fire_button.arm()
         self.menu.Enable()
