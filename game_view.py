@@ -667,8 +667,9 @@ class GameView(ui.RootElement):
         globals.ui_atlas = drawing.texture.TextureAtlas('ui_atlas_0.png','ui_atlas.txt',extra_names=False)
         self.game_over = False
         self.tutorial = False
-        #pygame.mixer.music.load('music.ogg')
-        #self.music_playing = False
+        pygame.mixer.music.load(os.path.join('resource','sounds','music_normal.ogg'))
+
+        self.music_playing = False
         super(GameView,self).__init__(Point(0,0),globals.screen*4)
         #self.square = drawing.Line(globals.line_buffer)
         #self.square.SetVertices( Point(0,0), Point(1000,1000), 1000)
@@ -969,6 +970,11 @@ class GameView(ui.RootElement):
         self.enemy_body.velocity = velocity.Rotate(rotation)
         self.enemy = Enemy()
         self.enemy.active = active
+        if self.enemy.active:
+            #The last music was aggressive, put the normal one back on
+            pygame.mixer.music.load(os.path.join('resource','sounds','music_action.ogg'))
+            self.music_playing = False
+            self.StartMusic()
         self.viewpos = Viewpos(Point(-320,-180))
         self.dragging = None
         self.zoom = 1
@@ -1003,6 +1009,11 @@ class GameView(ui.RootElement):
 
     def Stop(self):
         #reset the buttons before we stop it since they don't work when stopped
+        if self.enemy.active:
+            #The last music was aggressive, put the normal one back on
+            pygame.mixer.music.load(os.path.join('resource','sounds','music_normal.ogg'))
+            self.music_playing = False
+            self.StartMusic()
         self.thrusters = True
         for button in self.weapon_buttons:
             if button.state:
@@ -1218,9 +1229,9 @@ class GameView(ui.RootElement):
                 pass
 
     def StartMusic(self):
-        pass
-        #pygame.mixer.music.play(-1)
-        #self.music_playing = True
+        pygame.mixer.music.play(-1)
+        pygame.mixer.music.set_volume(0.2)
+        self.music_playing = True
 
     def Draw(self):
         drawing.ResetState()
@@ -1913,7 +1924,7 @@ class GameView(ui.RootElement):
                 pygame.mixer.music.set_volume(0)
             else:
                 self.music_playing = True
-                pygame.mixer.music.set_volume(1)
+                pygame.mixer.music.set_volume(0.2)
         if key == pygame.K_ESCAPE:
             self.Stop()
         if self.stopped:
