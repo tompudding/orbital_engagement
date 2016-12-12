@@ -250,6 +250,7 @@ class Enemy(Ship):
         self.has_lock = False
         self.scan_start = None
         self.scan_lines = [drawing.Line(globals.line_buffer) for i in xrange(self.scan_line_parts)]
+        self.last_launch = None
 
     def Disable(self):
         if self.enabled:
@@ -1420,11 +1421,13 @@ class GameView(ui.RootElement):
                         self.enemy.has_lock = False
                     else:
                         #The lock is still live. Maybe fire
-                        solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
-                        if solution is not None:
-                            print 'Enemy has firing solution go go go',solution
-                            self.console.add_text('Enemy launch detected')
-                            self.launch_missile( Objects.ENEMY, *solution )
+                        if self.enemy.last_launch is None or (globals.time - self.enemy.last_launch) > 2500:
+                            solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
+                            if solution is not None:
+                                print 'Enemy has firing solution go go go',solution
+                                self.console.add_text('Enemy launch detected')
+                                self.launch_missile( Objects.ENEMY, *solution )
+                                self.enemy.last_launch = globals.time
 
             #Kill the line segments that are in the future
             for t,state in self.future_state:
@@ -1794,13 +1797,18 @@ class GameView(ui.RootElement):
 
     def AdjustZoom(self,amount,pos):
         #hack to get the zooming right
+        if self.stopped:
+            return
         pos -= Point(320,180)
         pos_coords = self.viewpos.Get() + (pos/self.zoom)
         oldzoom = self.zoom
 
         self.zoom -= (amount/10.0)
-        if self.zoom > 4:
-            self.zoom = 4
+        if self.zoom > 3:
+            self.zoom = 3
+        if self.zoom < 0.3:
+            self.zoom = 0.3
+
 
         #if we've zoomed so far out that we can see an edge of the screen, fix that
         top_left= Point(0,globals.screen.y/self.zoom)
@@ -1808,11 +1816,13 @@ class GameView(ui.RootElement):
         bottom_right = Point(globals.screen.x/self.zoom,0)
 
         new_viewpos = self.viewpos.Get()
-        if new_viewpos.y < 0:
-            new_viewpos.y = 0
+        x = self.absolute.size.x - (globals.screen.x/self.zoom)
+        y = self.absolute.size.y - (globals.screen.y/self.zoom)
+        if new_viewpos.y < -y:
+            new_viewpos.y = -y
 
-        if new_viewpos.x < 0:
-            new_viewpos.x = 0
+        if new_viewpos.x < -x:
+            new_viewpos.x = -x
 
         #now the top left
         new_top_right = new_viewpos+top_right
@@ -1823,10 +1833,10 @@ class GameView(ui.RootElement):
             new_viewpos.x -= (new_top_right.x - self.absolute.size.x)
 
         try:
-            if new_viewpos.y < 0:
+            if new_viewpos.y < -y:
                 raise ValueError
 
-            if new_viewpos.x < 0:
+            if new_viewpos.x < -x:
                 raise ValueError
 
             #now the top left
@@ -1843,7 +1853,11 @@ class GameView(ui.RootElement):
             return
 
         new_pos_coords = self.viewpos.Get() + pos/self.zoom
-        self.viewpos.Set(self.viewpos.Get() + (pos_coords - new_pos_coords))
+        a = self.viewpos.Get() + (pos_coords - new_pos_coords)
+        if a.x < -x or a.x > x or a.y < -y or a.y > y:
+            self.zoom = oldzoom
+            return
+        self.viewpos.Set(a)
 
     def ClampViewpos(self):
         #print self.viewpos.pos,self.absolute.size.x - (globals.screen.x/self.zoom)
