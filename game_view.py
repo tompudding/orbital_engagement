@@ -650,11 +650,13 @@ class GameView(ui.RootElement):
         self.sun = Sun()
         self.ship = Ship()
         self.enemy = Enemy()
+        self.thrusters = True
         self.grid = ui.Grid(self,Point(-1,-1),Point(1,1),Point(40,40))
         self.grid.Enable()
         self.sun_body  = FixedBody( pos=Point(0,0), velocity=Point(0,0), type=Objects.SUN, mass=100000000 )
         self.sun.set_vertices(self.sun_body.pos)
         self.echoes = []
+        self.lock_time = None
 
         self.initial_data = [
             #For the tutorial the asteroid is just behind the player in the orbit so they don't go out of sync
@@ -921,6 +923,7 @@ class GameView(ui.RootElement):
         self.ship_body.velocity = velocity.Rotate(rotation)
 
         pos,velocity,active = self.initial_data[level][Objects.ENEMY]
+        self.thrusters = False if level == 2 else True
 
         self.enemy_body.pos = pos.Rotate(rotation)
         self.enemy_body.velocity = velocity.Rotate(rotation)
@@ -940,6 +943,7 @@ class GameView(ui.RootElement):
         self.player_health = 100
         self.enemy_health = 100
         self.end_time = None
+        self.lock_time = None
         self.console.clear()
         self.echoes = []
         self.console.add_text(self.intro_text[level])
@@ -1058,7 +1062,7 @@ class GameView(ui.RootElement):
         self.arm_progress.SetBarLevel(0)
 
     def thrust(self, on, key):
-        if self.stopped:
+        if self.stopped or not self.thrusters:
             #quick hack, this works then menu while stopped
             if not on:
                 self.menu.key_press(key)
@@ -1323,7 +1327,8 @@ class GameView(ui.RootElement):
 
         if self.enemy.locked:
             distance = (self.initial_state[Objects.PLAYER].pos - self.initial_state[Objects.ENEMY].pos).length()
-            if distance > self.scan_radius*1.4:
+            lock_age = globals.time - self.lock_time
+            if distance > self.scan_radius*1.4 and lock_age > 10000:
                 self.lose_lock(self.enemy)
 
 
@@ -1569,6 +1574,8 @@ class GameView(ui.RootElement):
         if self.enemy_health <= 0:
             return
         enemy.locked = True
+        if not reacquire:
+            self.lock_time = globals.time
         if self.manual_button.state:
             return
         if self.tutorial == self.tutorial_click_scan:
@@ -1582,6 +1589,7 @@ class GameView(ui.RootElement):
 
     def lose_lock(self, enemy):
         enemy.locked = False
+        self.lock_time = None
         if self.firing_solution and not self.manual_button.state:
             self.clear_firing_solution()
         self.reset_line(Objects.ENEMY)
