@@ -662,7 +662,8 @@ class GameView(ui.RootElement):
         self.initial_state = { Objects.PLAYER : self.ship_body,
                                Objects.ENEMY  : self.enemy_body,
                                Objects.SUN    : self.sun_body }
-        self.Start()
+        #self.Start()
+        self.Stop()
 
     def Stop(self):
         self.stopped = True
@@ -1295,7 +1296,7 @@ class GameView(ui.RootElement):
 
         handled,dragging = super(GameView,self).MouseButtonDown(screen_pos,button)
 
-        if handled:
+        if handled or self.stopped:
             return handled,dragging
         if button == 1:
             self.zooming = None

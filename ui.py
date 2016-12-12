@@ -680,6 +680,8 @@ class ImageBoxToggleButton(ImageBoxButton):
         super(ImageBoxButton,self).Delete()
 
     def OnClick(self,pos,button,skip_callback=False):
+        if globals.game_view.stopped:
+            return
         if self.state:
             self.state = False
             self.quad.SetTextureCoordinates(self.tc_normal)
