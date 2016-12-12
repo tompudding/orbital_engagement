@@ -650,7 +650,7 @@ class GameView(ui.RootElement):
         #self.square = drawing.Line(globals.line_buffer)
         #self.square.SetVertices( Point(0,0), Point(1000,1000), 1000)
         #self.square.SetColour( (1,0,0,1) )
-        self.explosion_line_buffer = drawing.LineBuffer(32*Explosion.line_segs)
+        self.explosion_line_buffer = drawing.LineBuffer(32000*Explosion.line_segs)
         self.sun = Sun()
         self.ship = Ship()
         self.enemy = Enemy()
@@ -944,7 +944,7 @@ class GameView(ui.RootElement):
 
         self.enemy_body.pos = pos.Rotate(rotation)
         self.enemy_body.velocity = velocity.Rotate(rotation)
-        self.enemy_body.active = active
+        self.enemy.active = active
         self.viewpos = Viewpos(Point(-320,-180))
         self.dragging = None
         self.zoom = 1
@@ -1276,7 +1276,7 @@ class GameView(ui.RootElement):
             if t < globals.time:
                 to_destroy.append((obj_type, r, probe))
         for (obj_type,r,probe) in to_destroy:
-            self.destroy_missile(obj_type, r, probe=probe)
+            self.destroy_missile(obj_type, radius=r, probe=probe)
 
         #The missiles could have killed someone
         if self.stopped:
@@ -1464,9 +1464,10 @@ class GameView(ui.RootElement):
         self.initial_state[obj_type] = Body( source.pos, source.velocity + velocity, obj_type, Missile.mass )
         self.detonation_times[obj_type] = (globals.time + delay, radius, probe)
 
-    def destroy_missile(self, obj_type, radius=None, explode=True, probe=False):
+    def destroy_missile(self, obj_type, already_exploding=None, radius=None, explode=True, probe=False):
         #remove it from the initial_state
-        print 'destroy',explode,probe
+        if already_exploding is None:
+            already_exploding = set()
         if probe and explode:
             self.scan_start = globals.time
             self.scan_end = globals.time + self.scan_duration
@@ -1488,7 +1489,9 @@ class GameView(ui.RootElement):
                 if diff < radius:
                     #damage
                     if obj >= Objects.MISSILE1:
-                        self.destroy_missile(obj,explode=True)
+                        if obj not in already_exploding:
+                            already_exploding.add(obj_type)
+                            self.destroy_missile(obj,already_exploding=already_exploding,explode=True)
                     else:
                         damage = 100 if radius == self.explosion_radius else 1000
                         self.damage(obj, damage * (1 - (diff / radius)))
