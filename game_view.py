@@ -313,7 +313,7 @@ class Menu(object):
                                       tr=None,
                                       text='YOU DIED',
                                       textType = drawing.texture.TextTypes.GRID_RELATIVE,
-                                      colour = (0,0.7,0,1),
+                                      colour = (0.7,0.1,0,1),
                                       scale = 16)
         self.death_text.Disable()
         self.win_text = ui.TextBox( parent=self.frame,
@@ -321,7 +321,7 @@ class Menu(object):
                                       tr=None,
                                       text='YOU WON',
                                       textType = drawing.texture.TextTypes.GRID_RELATIVE,
-                                      colour = (0,0.7,0,1),
+                                      colour = (0.7,0.1,0,1),
                                       scale = 16)
         self.win_text.Disable()
         self.selected = None
@@ -707,7 +707,6 @@ class GameView(ui.RootElement):
         self.scan_lines = [drawing.Line(globals.line_buffer) for i in xrange(self.scan_line_parts)]
         #set up the state
         self.future_state = []
-        self.fill_state()
         #skip titles for development of the main game
         #self.mode = modes.Titles(self)
         self.viewpos = Viewpos(Point(-320,-180))
@@ -893,9 +892,9 @@ class GameView(ui.RootElement):
             self.manual_button.OnClick(None, None, skip_callback=True)
         self.stopped = True
         #Disable all the lines and we'll just not draw the quads
-        self.sun.quad.Disable()
-        self.ship.quad.Disable()
-        self.enemy.quad.Disable()
+        self.sun.Disable()
+        self.ship.Disable()
+        self.enemy.Disable()
         for m in self.missile_images:
             m.Disable()
         for obj_type in Objects.mobile:
@@ -914,6 +913,7 @@ class GameView(ui.RootElement):
             body.line_seg.Delete()
         for exp in self.explosions:
             exp.Delete()
+        self.future_state = []
 
         #For the menu
         self.fire_button.arm()
@@ -922,12 +922,16 @@ class GameView(ui.RootElement):
     def Start(self):
         self.stopped = False
         self.menu.Disable()
-        self.sun.quad.Enable()
-        self.ship.quad.Enable()
-        self.enemy.quad.Enable()
+        self.sun.Enable()
+        self.ship.Enable()
+        self.enemy.Enable()
         for m in self.missile_images:
             if m.enabled:
                 m.quad.Enable()
+        self.enemy.locked = False
+        self.fill_state()
+        #The enemy is not locked so remove the line we just calculated
+        self.reset_line(Objects.ENEMY)
         for obj_type in Objects.mobile:
             for i in xrange(0, len(self.future_state)):
                 try:
@@ -943,6 +947,8 @@ class GameView(ui.RootElement):
         for body in self.firing_solution_steps:
             body.line_seg.Enable()
         self.fire_button.disarm()
+        self.last = globals.time
+
 
 
 
