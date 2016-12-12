@@ -417,12 +417,14 @@ class Menu(object):
                 new = 0
         else:
             return
+        globals.sounds.menu2.play()
         self.select(new)
 
     def choose(self):
         if self.splash:
             self.hide_splash()
             return
+        globals.sounds.choose.play()
         globals.game_view.Reset( self.selected )
 
     def Enable(self):
@@ -1001,6 +1003,7 @@ class GameView(ui.RootElement):
 
     def Stop(self):
         #reset the buttons before we stop it since they don't work when stopped
+        self.thrusters = True
         for button in self.weapon_buttons:
             if button.state:
                 button.OnClick(None,None,skip_callback=True)
@@ -1101,13 +1104,20 @@ class GameView(ui.RootElement):
         if self.arming_weapon == 2:
             radius *= 3
         self.console.add_text('%s launched' % self.weapon_names[self.arming_weapon])
+        globals.sounds.fire.play()
+        if self.arming_weapon == 2:
+            globals.sounds.voice_nuke_launch.play()
+        elif self.arming_weapon == 1:
+            globals.sounds.voice_probe_launch.play()
         self.launch_missile( Objects.PLAYER, *self.firing_solution, radius=radius, probe=self.arming_weapon == 1 )
         self.fire_button.disarm()
         self.arm_progress.SetBarLevel(0)
 
     def thrust(self, on, key):
-        if self.stopped or not self.thrusters:
-            #quick hack, this works then menu while stopped
+        if not self.thrusters:
+            return
+        if self.stopped:
+            #quick hack, this works the menu while stopped
             if not on:
                 self.menu.key_press(key)
             return
@@ -1120,7 +1130,7 @@ class GameView(ui.RootElement):
 
         if not self.console.entering or self.stopped:
             return
-
+        globals.sounds.keypad.play()
         if n == 'E':
             self.console.add_char('\n')
             text = ''.join(self.keypad.buffer)
@@ -1280,6 +1290,7 @@ class GameView(ui.RootElement):
             self.disabled = False
             self.overlay.SetColour( self.no_overlay )
             self.stabalise_orbit(Objects.PLAYER)
+            globals.sounds.power_up.play()
 
         if self.arm_end is not None:
             if globals.time > self.arm_end:
@@ -1404,6 +1415,7 @@ class GameView(ui.RootElement):
                     if self.enemy.scan_start is None:
                         #if we don't have a lock we must scan
                         self.enemy.scan_start = globals.time
+                        globals.sounds.scan.play()
                         self.enemy.scan_end = globals.time + self.scan_duration
                         self.enemy.scan_start_pos = self.initial_state[Objects.ENEMY].pos
                     else:
@@ -1421,6 +1433,9 @@ class GameView(ui.RootElement):
                             solution = self.initial_state[Objects.ENEMY].scan_for_target( self.initial_state[Objects.PLAYER], self.explosion_radius )
                             if solution is not None:
                                 self.console.add_text('Enemy launch detected')
+                                if not globals.played_launch:
+                                    globals.sounds.voice_enemy_launch.play()
+                                    globals.played_launch = True
                                 self.launch_missile( Objects.ENEMY, *solution )
                                 self.enemy.last_launch = globals.time
 
@@ -1485,6 +1500,7 @@ class GameView(ui.RootElement):
         if self.selected_weapon is None:
             self.console.add_text('No weapon selected')
             return
+        globals.sounds.keypad.play()
 
         self.arm_start = globals.time
         self.arm_duration = self.weapon_arm_times[self.selected_weapon]
@@ -1529,11 +1545,16 @@ class GameView(ui.RootElement):
             self.scan_start = globals.time
             self.scan_end = globals.time + self.scan_duration
             self.scan_start_pos = self.initial_state[obj_type].pos
+            globals.sounds.scan.play()
         elif explode:
             if radius is None:
                 radius = self.explosion_radius
             self.start_explosion( self.initial_state[obj_type].pos, radius )
             #check for damage
+            if radius == self.explosion_radius:
+                globals.sounds.explode.play()
+            else:
+                globals.sounds.nuke.play()
             for obj in Objects.mobile:
                 if obj == obj_type:
                     continue
@@ -1566,7 +1587,7 @@ class GameView(ui.RootElement):
 
     def damage(self, obj, amount):
         if obj == Objects.PLAYER:
-            console.add_text('Damage detected')
+            self.console.add_text('Damage detected')
             self.player_health -= amount
             if self.player_health <= 0:
                 if self.end_time is None:
@@ -1592,6 +1613,8 @@ class GameView(ui.RootElement):
             return
         self.finish_stabalising = globals.time + self.stabalise_duration
         self.disabled = True
+        globals.sounds.power_down.play()
+        globals.sounds.voice_stabalising.play()
         if self.enemy.locked:
             self.lose_lock(self.enemy)
 
@@ -1617,6 +1640,7 @@ class GameView(ui.RootElement):
         #The player has started a scan, start drawing the circle
         if self.disabled or self.stopped:
             return
+        globals.sounds.scan.play()
         self.scan_start = globals.time
         self.scan_end = globals.time + self.scan_duration
         self.scan_start_pos = self.initial_state[Objects.PLAYER].pos
@@ -1671,6 +1695,7 @@ class GameView(ui.RootElement):
             self.clear_firing_solution()
         self.reset_line(Objects.ENEMY)
         self.console.add_text('Target lost')
+        globals.sounds.target_lost.play()
 
     def clear_firing_solution(self):
         #Draw the current firing soltion
@@ -1689,6 +1714,7 @@ class GameView(ui.RootElement):
         self.firing_solution_time = globals.time
         if not manual and not reacquire:
             self.console.add_text('Target Locked')
+            globals.sounds.target_locked.play()
 
         self.firing_solution = (angle, delay)
         angle_degrees = 180*angle/math.pi

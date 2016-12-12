@@ -94,11 +94,14 @@ class Combat(Mode):
         except KeyError:
             key = input_key
         if key in self.keyflags:
+            if not self.keydownmap:
+                globals.sounds.thrust.play()
             if self.keyflags[key] in self.keydownmap:
                 return
             if key in self.direction_amounts:
                 self.keydownmap[self.keyflags[key]] = input_key
                 self.parent.move_direction += self.direction_amounts[key]
+
 
     def KeyUp(self,input_key):
         try:
@@ -106,6 +109,8 @@ class Combat(Mode):
         except KeyError:
             key = input_key
         if key in self.keyflags:
+            if self.keydownmap:
+                globals.sounds.thrust.stop()
             if self.keyflags[key] not in self.keydownmap:
                 return
             if key in self.direction_amounts and (self.keydownmap[self.keyflags[key]] == input_key):

@@ -37,6 +37,9 @@ def Init():
     globals.screen_quadbuffer     = drawing.QuadBuffer(16)
     globals.tick_factor           = 500
     globals.screen.crt      = drawing.Quad(globals.screen_quadbuffer)
+    globals.sounds                = sounds.Sounds()
+    globals.sounds.voice_intro.play()
+    globals.played_launch = False
     bl = Point(90,100)
     tr = bl + Point(160,90)*2.87
     globals.screen.crt.SetVertices(bl, tr,0.01)

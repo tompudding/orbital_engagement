@@ -681,6 +681,7 @@ class ImageBoxToggleButton(ImageBoxButton):
     def OnClick(self,pos,button,skip_callback=False):
         if globals.game_view.stopped:
             return
+        globals.sounds.weapon_click.play()
         if self.state:
             self.state = False
             self.quad.SetTextureCoordinates(self.tc_normal)
@@ -721,6 +722,7 @@ class ManualButton(ImageBoxButton):
             return
         if globals.game_view.stopped:
             return
+        globals.sounds.click.play()
         if self.state:
             self.state = False
             self.quad.SetTextureCoordinates(self.tc_normal)
