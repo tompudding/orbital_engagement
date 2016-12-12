@@ -606,6 +606,7 @@ class GameView(ui.RootElement):
         self.atlas = globals.atlas = drawing.texture.TextureAtlas('tiles_atlas_0.png','tiles_atlas.txt')
         globals.ui_atlas = drawing.texture.TextureAtlas('ui_atlas_0.png','ui_atlas.txt',extra_names=False)
         self.game_over = False
+        self.tutorial = False
         #pygame.mixer.music.load('music.ogg')
         #self.music_playing = False
         super(GameView,self).__init__(Point(0,0),globals.screen*4)
@@ -689,7 +690,7 @@ class GameView(ui.RootElement):
               }
             ]
 
-        self.intro_text = ['Welcome to the orbital defence simulator private! Get used to this room as it\'s all you''ll be seeing for the rest of, er, I mean the next few months of, your life.',
+        self.intro_text = ['Welcome to the orbital defence simulator private! Get used to this room as it\'s all you\'ll see for the rest of, er, I mean the next few days of, your life.\nClick here to begin',
                            'b','c','d','e','f'
                            ]
 
@@ -854,6 +855,26 @@ class GameView(ui.RootElement):
 
         self.Stop()
 
+    def tutorial_click_screen(self):
+        self.console.add_text('Great. You\'re in orbit around a star and there\'s an asteroid behind you. Click scan to find it\n\n')
+        self.tutorial = self.tutorial_click_scan
+
+    def tutorial_click_scan(self):
+        self.console.add_text('You\'re now locked on. Drag the screen to look around a little.\n\n')
+        self.tutorial = self.tutorial_drag
+
+    def tutorial_drag(self):
+        self.console.add_text('Nice. You\'re targeting solution is locked in, but to fire you need to arm a weapon. Choose missile and hit the arm button in the middle\n\n')
+        self.tutorial = self.tutorial_arm
+
+    def tutorial_arm(self):
+        self.console.add_text('Now you\'re locked and weapons are armed.\nFire when ready.\n\n')
+        self.tutorial = self.tutorial_fire
+
+    def tutorial_fire(self):
+        self.console.add_text('Great, your missile is away. It may take a few hits to destroy it, good luck\n\n')
+        self.tutorial = False
+
     def circular_orbit_velocity(self, r):
         return (math.sqrt(G * self.sun_body.mass / (r * globals.pixels_to_units)))
 
@@ -890,6 +911,10 @@ class GameView(ui.RootElement):
         self.initial_state = { Objects.PLAYER : self.ship_body,
                                Objects.ENEMY  : self.enemy_body,
                                Objects.SUN    : self.sun_body }
+        if level == 0:
+            self.tutorial = self.tutorial_click_screen
+        else:
+            self.tutorial = False
         self.Start()
         #self.Stop()
 
@@ -964,6 +989,8 @@ class GameView(ui.RootElement):
             #hack, this works the menu
             self.menu.choose()
             return
+        if self.tutorial == self.tutorial_fire:
+            self.tutorial()
         if self.arming_weapon == 3: #chaff
             self.fire_button.disarm()
             self.arm_progress.SetBarLevel(0)
@@ -1172,6 +1199,8 @@ class GameView(ui.RootElement):
         if self.arm_end is not None:
             if globals.time > self.arm_end:
                 self.console.add_text('Armed %s' % self.weapon_names[self.arming_weapon])
+                if self.tutorial == self.tutorial_arm and self.selected_weapon == 0:
+                    self.tutorial()
                 self.arm_end = None
                 self.fire_button.arm()
             else:
@@ -1333,6 +1362,7 @@ class GameView(ui.RootElement):
         if self.selected_weapon is None:
             self.console.add_text('No weapon selected')
             return
+
         self.arm_start = globals.time
         self.arm_duration = self.weapon_arm_times[self.selected_weapon]
         self.arm_end = globals.time + self.arm_duration
@@ -1493,6 +1523,9 @@ class GameView(ui.RootElement):
         enemy.locked = True
         if self.manual_button.state:
             return
+
+        if self.tutorial == self.tutorial_click_scan:
+            self.tutorial()
         #Let's try and grab a firing solution
         solution = self.initial_state[Objects.PLAYER].scan_for_target( self.initial_state[Objects.ENEMY], self.explosion_radius )
         if solution is None:
@@ -1558,6 +1591,13 @@ class GameView(ui.RootElement):
     def MouseButtonDown(self,pos,button):
         screen_pos = self.viewpos.Get() + (pos/self.zoom)
 
+        #Hax!
+        if self.tutorial == self.tutorial_click_screen:
+            if pos.x >= 25 and pos.x <= 117 and pos.y >= 27 and pos.y <= 77:
+                print 'click!'
+                self.tutorial()
+                return True,None
+
         handled,dragging = super(GameView,self).MouseButtonDown(screen_pos,button)
 
         if handled or self.stopped:
@@ -1610,6 +1650,8 @@ class GameView(ui.RootElement):
             self.viewpos.Set(self.dragging - (pos/self.zoom))
             self.ClampViewpos()
             self.dragging = self.viewpos.Get() + (pos/self.zoom)
+            if self.tutorial == self.tutorial_drag:
+                self.tutorial()
         elif self.zooming:
             self.AdjustZoom(-rel.y/100.0,globals.screen/2)
 
