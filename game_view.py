@@ -499,11 +499,11 @@ class GameView(ui.RootElement):
                              self.keypad_pressed)
 
         self.scan_button = ui.ImageBoxButton(globals.screen_root,
-                                             Point(0.45,0.15),
+                                             Point(0.43,0.15),
                                              ('button_scan.png','button_scan_pressed.png'),
                                              lambda a,b,c: self.start_scan())
         self.stabalise_button = ui.ImageBoxButton(globals.screen_root,
-                                                  Point(0.45,0.07),
+                                                  Point(0.43,0.07),
                                                   ('button_stabalise.png','button_stabalise_pressed.png'),
                                                   lambda a,b,c: self.hit_stabalise())
 
@@ -535,7 +535,44 @@ class GameView(ui.RootElement):
                                                     lambda state,weapon=3: self.select_weapon(state, weapon))
 
         self.weapon_buttons = [self.missile_button, self.probe_button, self.nuke_button, self.chaff_button]
+        self.arm_button = ui.ImageBoxButton(globals.screen_root,
+                                            Point(0.836,0.125),
+                                            ('button_up_..png','button_down_..png'),
+                                            lambda a,b,c: self.arm_weapon())
 
+        self.weapon_arm_times = [1000, #missile
+                                 1500, #probe
+                                 5000, #nuke
+                                 200] #chaff
+
+        bl = Point(0.48,0.085)
+        self.thrust_up_button = ui.ImageBoxButton(globals.screen_root,
+                                                  bl + Point(0.1,0.07),
+                                                  ('thruster_up.png','thruster_up_pressed.png'),
+                                                  lambda a,b,c,dir=Point(0,1): self.thrust(dir))
+        self.thrust_down_button = ui.ImageBoxButton(globals.screen_root,
+                                                    bl + Point(0.1,0.0),
+                                                    ('thruster_down.png','thruster_down_pressed.png'),
+                                                    lambda a,b,c,dir=Point(0,-1): self.thrust(dir))
+        self.thrust_left_button = ui.ImageBoxButton(globals.screen_root,
+                                                    bl + Point(0.07,0.035),
+                                                    ('thruster_left.png','thruster_left_pressed.png'),
+                                                    lambda a,b,c,dir=Point(0,-1): self.thrust(dir))
+        self.thrust_right_button = ui.ImageBoxButton(globals.screen_root,
+                                                     bl + Point(0.13,0.035),
+                                                     ('thruster_right.png','thruster_right_pressed.png'),
+                                                     lambda a,b,c,dir=Point(0,-1): self.thrust(dir))
+
+        bl = Point(0.8,0.01)
+        tr = bl + Point(0.1,0.03)
+        self.arm_progress = ui.PowerBar(globals.screen_root,
+                                        pos = bl,
+                                        tr = tr,
+                                        level = 0,
+                                        bar_colours = (drawing.constants.colours.red,
+                                                       drawing.constants.colours.yellow,
+                                                       drawing.constants.colours.green),
+                                        border_colour = (0,0,0,0.4))
 
         self.StartMusic()
         self.stabalise_orbit(Objects.ENEMY)
@@ -566,7 +603,11 @@ class GameView(ui.RootElement):
 
         self.firing_solution = None
         self.selected_weapon = None
+        self.arm_end = None
         self.firing_solution_steps = []
+
+    def thrust(self, dir):
+        print dir
 
     def keypad_pressed(self, n):
         #print 'kp',n
@@ -723,6 +764,15 @@ class GameView(ui.RootElement):
             self.overlay.SetColour( self.no_overlay )
             self.stabalise_orbit(Objects.PLAYER)
 
+        if self.arm_end is not None:
+            if globals.time > self.arm_end:
+                self.console.add_text('Armed')
+                self.arm_end = None
+                self.armed = True
+            else:
+                partial = float(globals.time - self.arm_start)/self.arm_duration
+                self.arm_progress.SetBarLevel(partial)
+
         #kill missiles in flight
         to_destroy = []
         for obj_type, t in self.detonation_times.iteritems():
@@ -868,6 +918,17 @@ class GameView(ui.RootElement):
             self.saved_segs[obj_type] = []
 
         self.fill_state_obj(obj_type)
+
+    def arm_weapon(self):
+        if self.selected_weapon is None:
+            self.console.add_text('No weapon selected')
+            return
+        self.arm_start = globals.time
+        self.arm_duration = self.weapon_arm_times[self.selected_weapon]
+        self.arm_end = globals.time + self.arm_duration
+        self.armed = False
+        self.arm_progress.SetBarLevel(0)
+        self.console.add_text('Arming...')
 
     def select_weapon(self, state, index):
         if not state:
