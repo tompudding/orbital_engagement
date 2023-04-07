@@ -52,7 +52,7 @@ class Actor(object):
         return self.pos + (self.size/2).Rotate(self.angle)
 
     def RemoveFromMap(self):
-        if self.pos != None:
+        if self.pos is not None:
             bl = self.pos.to_int()
             tr = (self.pos+self.size).to_int()
             for x in xrange(bl.x,tr.x+1):
@@ -110,7 +110,7 @@ class Actor(object):
         return self.pos + self.hand_offset.Rotate(self.angle)
 
     def Move(self,t):
-        if self.last_update == None:
+        if self.last_update is None:
             self.last_update = globals.time
             return
         elapsed = (globals.time - self.last_update)*globals.time_step

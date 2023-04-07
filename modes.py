@@ -156,7 +156,7 @@ class GameOver(Mode):
         #pygame.mixer.music.play(-1)
 
     def Update(self,t):
-        if self.start == None:
+        if self.start is None:
             self.start = t
         self.elapsed = t - self.start
         self.stage = self.handlers[self.stage](t)

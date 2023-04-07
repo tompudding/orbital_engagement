@@ -226,7 +226,7 @@ class RootElement(UIElement):
         if hovered:
             hovered.MouseMotion(pos,rel,handled)
         if hovered is not self.hovered:
-            if self.hovered != None:
+            if self.hovered is not None:
                 self.hovered.EndHover()
         if not hovered or not self.depressed or (self.depressed and hovered is self.depressed):
             self.hovered = hovered
@@ -525,12 +525,12 @@ class ImageBox(Box):
         tr = pos + parent.GetRelative(self.size_pixels * globals.scale)
 
         super(Box,self).__init__(parent,pos,tr)
-        if buffer == None:
+        if buffer is None:
             buffer = globals.ui_buffer
 
         self.quad = drawing.Quad(buffer)
 
-        self.extra_level = 0 if level == None else level
+        self.extra_level = 0 if level is None else level
         self.quad.SetVertices(self.absolute.bottom_left,
                               self.absolute.top_right,
                               self.level + self.extra_level)
@@ -737,7 +737,7 @@ class ManualButton(ImageBoxButton):
 class TextBox(UIElement):
     """ A Screen-relative text box wraps text to a given size """
     def __init__(self,parent,bl,tr,text,scale,colour = None,textType = drawing.texture.TextTypes.SCREEN_RELATIVE,alignment = drawing.texture.TextAlignments.LEFT):
-        if tr == None:
+        if tr is None:
             #If we're given no tr; just set it to one row of text, as wide as it can get without overflowing
             #the parent
             self.shrink_to_fit = True
@@ -877,7 +877,7 @@ class TextBox(UIElement):
     def SetText(self,text,colour = None):
         """Update the text"""
         enabled = self.enabled
-        if colour == None:
+        if colour is None:
             colour = self.colour
         self.Delete()
         if enabled:
@@ -922,7 +922,7 @@ class TextBox(UIElement):
         super(TextBox,self).Enable()
 
     def EnableChars(self,num = None):
-        if num == None:
+        if num is None:
             num = len(self.quads)
         if num < self.current_enabled:
             for quad in self.quads[num:]:
@@ -1099,7 +1099,7 @@ class ScrollTextBox(TextBox):
         pos = self.GetRelative(pos)
         low_thresh = 0.05
         high_thresh = 1.05
-        if self.dragging != None:
+        if self.dragging is not None:
             #print pos,'vp:',self.viewpos,(self.dragging - pos).y
             self.viewpos = self.ValidViewpos(self.dragging - pos.y)
 
@@ -1237,7 +1237,7 @@ class TextBoxButton(TextBox):
         super(TextBoxButton,self).Disable()
 
     def OnClick(self,pos,button):
-        if 1 or self.callback != None and button == 1:
+        if 1 or self.callback is not None and button == 1:
             self.callback(pos)
 
 class Slider(UIElement):
@@ -1368,12 +1368,12 @@ class Slider(UIElement):
 class ImageBox(Box):
     def __init__(self,parent,pos,tr,tc,buffer=None,level = None):
         super(Box,self).__init__(parent,pos,tr)
-        if buffer == None:
+        if buffer is None:
             buffer = globals.ui_texture_buffer
 
         self.quad = drawing.Quad(buffer)
         self.tc = tc
-        self.extra_level = 0 if level == None else level
+        self.extra_level = 0 if level is None else level
         self.quad.SetVertices(self.absolute.bottom_left,
                               self.absolute.top_right,
                               self.level + self.extra_level)
